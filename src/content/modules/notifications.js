@@ -1,12 +1,13 @@
 /**
- * itzTikTok Optimizer - Notification Eradication Module
+ * itzTikTok Optimizer - Notification & Toast Eradication Module
  * 
- * Complete Notification Suppression:
- * 1. Permanently neuters browser-level Web Notifications API (Notification.requestPermission = denied).
- * 2. Neutralizes notice polling endpoints (/api/notice/count, /notice/multi) so TikTok never receives notification events.
- * 3. Completely wipes out all floating toast popups from the bottom-right corner.
- * 4. Eradicates all red notification badges (99+, unread dots, counts) from sidebar and header.
- * 5. Prevents UI lag, layout thrashing, and audio pings caused by incoming notification streams.
+ * Complete Notification Elimination:
+ * 1. Permanently disables Web Notifications API (Notification.requestPermission = denied).
+ * 2. Intercepts notice polling streams (/api/notice/) so TikTok Web never receives notification data.
+ * 3. Sanitizes document.title to permanently eliminate [99+] tab flashing.
+ * 4. Completely destroys all floating toast popups from the bottom-right corner.
+ * 5. Removes all red notification badges (99+, unread dots, counts) across sidebar and header.
+ * 6. Hides the Activity navigation button from the sidebar.
  */
 
 import { BaseModule } from '../lifecycle.js';
@@ -28,6 +29,7 @@ export class NotificationsModule extends BaseModule {
     this.applyNotificationStyles();
     this.eradicateNotificationToasts();
     this.eradicateBadges();
+    this.sanitizeDocumentTitle();
     this.setupNotificationObserver();
   }
 
@@ -42,7 +44,7 @@ export class NotificationsModule extends BaseModule {
   }
 
   /**
-   * Injects script into page context to intercept Web Notifications API and notice polling
+   * Injects script into page context to intercept Web Notifications API, notice polling, and title
    */
   injectPageNotificationInterceptor() {
     if (typeof document === 'undefined') return;
@@ -72,19 +74,46 @@ export class NotificationsModule extends BaseModule {
           }
         } catch (e) {}
 
-        // 2. Intercept fetch notice polling
+        // 2. Title Sanitizer - Strips [99+], (99+), [1] from browser tab title
         try {
-          const originalFetch = window.fetch;
+          var cleanTitle = function(t) {
+            if (!t || typeof t !== 'string') return t;
+            return t.replace(/^\\[\\d+\\+?\\]\\s*/, '').replace(/^\\(\\d+\\+?\\)\\s*/, '');
+          };
+          if (document.title) {
+            document.title = cleanTitle(document.title);
+          }
+          var titleDesc = Object.getOwnPropertyDescriptor(Document.prototype, 'title') ||
+                          Object.getOwnPropertyDescriptor(HTMLDocument.prototype, 'title');
+          if (titleDesc && titleDesc.set) {
+            var origSet = titleDesc.set;
+            Object.defineProperty(document, 'title', {
+              set: function(val) {
+                origSet.call(this, cleanTitle(val));
+              },
+              get: function() {
+                return titleDesc.get.call(this);
+              },
+              configurable: true
+            });
+          }
+        } catch (e) {}
+
+        // 3. Intercept fetch notice polling
+        try {
+          var originalFetch = window.fetch;
           if (originalFetch) {
             window.fetch = function(...args) {
-              const url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
-              if (url && (
-                url.includes('/api/notice/') ||
-                url.includes('/api/v1/notice/') ||
-                url.includes('/notice/multi/') ||
-                url.includes('/notice/count/') ||
-                url.includes('/passport/web/account/notice/')
-              )) {
+              var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
+              var lowerUrl = (url || '').toLowerCase();
+              if (
+                lowerUrl.includes('/api/notice/') ||
+                lowerUrl.includes('/api/v1/notice/') ||
+                lowerUrl.includes('/notice/multi/') ||
+                lowerUrl.includes('/notice/count/') ||
+                lowerUrl.includes('/passport/web/account/notice/') ||
+                lowerUrl.includes('/notification/')
+              ) {
                 return Promise.resolve(new Response(JSON.stringify({
                   status_code: 0,
                   status_msg: '',
@@ -104,31 +133,27 @@ export class NotificationsModule extends BaseModule {
           }
         } catch (e) {}
 
-        // 3. Intercept XMLHttpRequest notice polling
+        // 4. Intercept XMLHttpRequest notice polling
         try {
-          const originalOpen = XMLHttpRequest.prototype.open;
+          var originalOpen = XMLHttpRequest.prototype.open;
           XMLHttpRequest.prototype.open = function(method, url, ...rest) {
-            this._itzUrl = typeof url === 'string' ? url : '';
+            this._itzUrl = (typeof url === 'string' ? url : '').toLowerCase();
             return originalOpen.call(this, method, url, ...rest);
           };
 
-          const originalSend = XMLHttpRequest.prototype.send;
+          var originalSend = XMLHttpRequest.prototype.send;
           XMLHttpRequest.prototype.send = function(...args) {
             if (this._itzUrl && (
               this._itzUrl.includes('/api/notice/') ||
               this._itzUrl.includes('/notice/multi/') ||
-              this._itzUrl.includes('/notice/count/')
+              this._itzUrl.includes('/notice/count/') ||
+              this._itzUrl.includes('/notification/')
             )) {
               Object.defineProperty(this, 'readyState', { value: 4, configurable: true });
               Object.defineProperty(this, 'status', { value: 200, configurable: true });
-              Object.defineProperty(this, 'responseText', {
-                value: JSON.stringify({ status_code: 0, notice_count: 0, data: [], data_count: 0 }),
-                configurable: true
-              });
-              Object.defineProperty(this, 'response', {
-                value: JSON.stringify({ status_code: 0, notice_count: 0, data: [], data_count: 0 }),
-                configurable: true
-              });
+              var emptyData = JSON.stringify({ status_code: 0, notice_count: 0, data: [], data_count: 0 });
+              Object.defineProperty(this, 'responseText', { value: emptyData, configurable: true });
+              Object.defineProperty(this, 'response', { value: emptyData, configurable: true });
               setTimeout(() => {
                 if (typeof this.onreadystatechange === 'function') this.onreadystatechange();
                 if (typeof this.onload === 'function') this.onload();
@@ -155,11 +180,16 @@ export class NotificationsModule extends BaseModule {
     }
   }
 
+  sanitizeDocumentTitle() {
+    if (typeof document === 'undefined' || !document.title) return;
+    document.title = document.title.replace(/^\[\d+\+?\]\s*/, '').replace(/^\(\d+\+?\)\s*/, '');
+  }
+
   applyNotificationStyles() {
     if (!this.enabled) return;
 
     const css = `
-      /* 1. Complete eradication of all floating notification toast cards (bottom-right popups) */
+      /* 1. Complete eradication of all floating notification toast cards and container lines */
       div[class*="Toast"],
       div[class*="toast"],
       div[class*="NoticeToast"],
@@ -172,11 +202,11 @@ export class NotificationsModule extends BaseModule {
       div[data-e2e*="push-notification"],
       div[data-e2e*="notice-popup"],
       div[data-e2e*="floating-notice"],
-      div[role="alert"]:has(img),
-      div[role="alert"]:has(button),
+      div[role="alert"],
       div[style*="fixed"][style*="bottom"][style*="right"],
       div[style*="fixed"][style*="right"][style*="bottom"],
       .${TOAST_HIDE_CLASS} {
+        all: unset !important;
         display: none !important;
         opacity: 0 !important;
         visibility: hidden !important;
@@ -185,10 +215,27 @@ export class NotificationsModule extends BaseModule {
         width: 0 !important;
         margin: 0 !important;
         padding: 0 !important;
+        border: none !important;
+        outline: none !important;
         overflow: hidden !important;
       }
 
-      /* 2. Complete eradication of all red notification badges (99+, dots, counters) */
+      /* 2. Hide Activity button from left sidebar navigation */
+      a[href*="/activity"],
+      li:has(a[href*="/activity"]),
+      div:has(> a[href*="/activity"]),
+      div[data-e2e*="activity"],
+      span[data-e2e*="activity"] {
+        display: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        border: none !important;
+        overflow: hidden !important;
+      }
+
+      /* 3. Complete eradication of all red notification badges (99+, dots, counters) */
       sup[data-e2e="inbox-badge"],
       div[data-e2e="inbox-icon"] sup,
       div[data-e2e="inbox-badge"],
@@ -216,7 +263,7 @@ export class NotificationsModule extends BaseModule {
         line-height: 0 !important;
       }
 
-      /* 3. Notification flyout panel dormant containment when closed */
+      /* 4. Notification flyout panel dormant containment when closed */
       div[data-e2e="inbox-panel"]:not([data-opened="true"]),
       div[class*="NotificationPopover"]:not([class*="show"]) {
         display: none !important;
@@ -227,7 +274,7 @@ export class NotificationsModule extends BaseModule {
   }
 
   /**
-   * Scans document for floating notification toasts and destroys them
+   * Scans document for floating notification toasts and destroys them directly
    */
   eradicateNotificationToasts(root = document) {
     if (!root || !root.querySelectorAll) return;
@@ -247,11 +294,15 @@ export class NotificationsModule extends BaseModule {
         text.includes('started following you');
 
       if (isToastText) {
-        // Find top-level floating card container
         const toastCard = el.closest('[role="alert"], div[class*="Toast"], div[class*="toast"], div[style*="fixed"]') || el;
-        toastCard.classList.add(TOAST_HIDE_CLASS);
-        if (toastCard.style && toastCard.style.setProperty) {
-          toastCard.style.setProperty('display', 'none', 'important');
+        // Destroy the node directly so no lingering lines or close buttons remain
+        if (typeof toastCard.remove === 'function') {
+          toastCard.remove();
+        } else {
+          toastCard.classList.add(TOAST_HIDE_CLASS);
+          if (toastCard.style && toastCard.style.setProperty) {
+            toastCard.style.setProperty('display', 'none', 'important');
+          }
         }
       }
     }
@@ -277,7 +328,7 @@ export class NotificationsModule extends BaseModule {
       const el = allBadges[i];
       const t = (el.textContent || '').trim();
       if (t === '99+' || t === '99' || (/^\d+$/.test(t) && el.children.length === 0)) {
-        if (el.closest('a[href*="/messages"], div[data-e2e="side-nav"], header, nav')) {
+        if (el.closest('a[href*="/messages"], a[href*="/activity"], div[data-e2e="side-nav"], header, nav')) {
           el.classList.add(BADGE_HIDE_CLASS);
           if (el.style && el.style.setProperty) {
             el.style.setProperty('display', 'none', 'important');
@@ -296,6 +347,7 @@ export class NotificationsModule extends BaseModule {
       debounceMs: 50,
       filter: (mut) => mut.addedNodes.length > 0,
       onBatch: (mutations) => {
+        this.sanitizeDocumentTitle();
         for (let i = 0; i < mutations.length; i++) {
           const mut = mutations[i];
           for (let j = 0; j < mut.addedNodes.length; j++) {

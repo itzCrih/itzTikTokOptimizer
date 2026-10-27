@@ -1,36 +1,147 @@
-(()=>{var b="itz-opt-style-",F="data-itz-optimized";function j(r,e){if(typeof document>"u")return null;let t=r.startsWith(b)?r:`${b}${r}`,i=document.getElementById(t);if(!i){i=document.createElement("style"),i.id=t,i.setAttribute("type","text/css"),i.setAttribute("data-itz-source","itzTikTokOptimizer");let s=document.head||document.documentElement;s&&s.appendChild(i)}return i.textContent!==e&&(i.textContent=e),i}function $(r){if(typeof document>"u")return!1;let e=r.startsWith(b)?r:`${b}${r}`,t=document.getElementById(e);return t&&t.parentNode?(t.parentNode.removeChild(t),!0):!1}function J(r,e){if(!r||!r.dataset)return;let t=r.getAttribute(F)||"";t.includes(e)||r.setAttribute(F,t?`${t} ${e}`:e)}function X(r,e){if(!r||!r.getAttribute)return!1;let t=r.getAttribute(F);return!!(t&&t.includes(e))}function p(r){if(typeof MutationObserver>"u")return null;let{target:e=typeof document<"u"?document.body:null,config:t={childList:!0,subtree:!0},filter:i=null,onBatch:s=()=>{},debounceMs:a=60}=r;if(!e)return null;let n=[],o=null,c=null,m=!1,f=()=>{if(n.length===0)return;let O=n;n=[],m=!0;try{s(O)}catch(y){console.warn("[itzTikTokOptimizer] Batched observer error:",y)}finally{m=!1}},G=new MutationObserver(O=>{if(!m){for(let y=0;y<O.length;y++){let h=O[y];h.target&&h.target.id&&h.target.id.startsWith(b)||h.target&&h.target.getAttribute&&h.target.getAttribute("data-itz-source")||i&&!i(h)||n.push(h)}n.length>0&&(a>0?c||(c=setTimeout(()=>{c=null,f()},a)):o||(o=requestAnimationFrame(()=>{o=null,f()})))}});return G.observe(e,t),{observer:G,disconnect:()=>{c&&clearTimeout(c),o&&cancelAnimationFrame(o),G.disconnect(),n=[]}}}var d=class{constructor(e,t){this.id=e,this.name=t,this.enabled=!1,this.initialized=!1,this.options={},this.styleId=`itz-mod-${e}`,this.observers=[],this.eventListeners=[],this.cleanupTasks=[]}async init(e){this.initialized=!0,this.options=e[this.id.replace("Optimization","Options")]||{}}async enable(e){if(!this.enabled){this.enabled=!0,this.options=e[this.id.replace("Optimization","Options")]||{};try{await this.onEnable(e)}catch(t){console.error(`[itzTikTokOptimizer] Error enabling module ${this.name}:`,t)}}}async disable(){if(this.enabled){this.enabled=!1;try{await this.onDisable()}catch(e){console.error(`[itzTikTokOptimizer] Error disabling module ${this.name}:`,e)}finally{this.teardownResources()}}}async updateOptions(e){this.options={...this.options,...e},this.enabled&&await this.onOptionsUpdated(this.options)}async onEnable(e){}async onDisable(){}async onOptionsUpdated(e){}onNavigate(e){}injectCSS(e){return j(this.styleId,e)}removeCSS(){return $(this.styleId)}registerObserver(e){return e&&this.observers.push(e),e}registerListener(e,t,i,s=!1){e&&e.addEventListener&&(e.addEventListener(t,i,s),this.eventListeners.push({target:e,type:t,handler:i,options:s}))}registerCleanup(e){typeof e=="function"&&this.cleanupTasks.push(e)}teardownResources(){for(let e of this.observers)try{typeof e.disconnect=="function"&&e.disconnect()}catch(t){console.warn(`[itzTikTokOptimizer] Observer cleanup error in ${this.id}:`,t)}this.observers=[];for(let e of this.eventListeners)try{e.target.removeEventListener(e.type,e.handler,e.options)}catch(t){console.warn(`[itzTikTokOptimizer] Listener cleanup error in ${this.id}:`,t)}this.eventListeners=[],this.removeCSS();for(let e of this.cleanupTasks)try{e()}catch(t){console.warn(`[itzTikTokOptimizer] Cleanup task error in ${this.id}:`,t)}this.cleanupTasks=[]}destroy(){this.disable(),this.initialized=!1}},A=class{constructor(){this.modules=new Map,this.currentSettings=null,this.isMasterActive=!0}register(e){return this.modules.set(e.id,e),this}getModule(e){return this.modules.get(e)}getAllModules(){return Array.from(this.modules.values())}async initAll(e){this.currentSettings=e,this.isMasterActive=!!e.masterEnabled;for(let t of this.modules.values())try{await t.init(e),this.isMasterActive&&e[t.id]&&await t.enable(e)}catch(i){console.error(`[itzTikTokOptimizer] Failed initializing module ${t.id}:`,i)}}async syncSettings(e){let t=this.currentSettings||{};this.currentSettings=e;let i=t.masterEnabled!==e.masterEnabled;if(this.isMasterActive=!!e.masterEnabled,!this.isMasterActive){for(let s of this.modules.values())s.enabled&&await s.disable();return}for(let s of this.modules.values()){let a=!!e[s.id];if(i&&a&&!s.enabled)await s.enable(e);else if(!i){if(a&&!s.enabled)await s.enable(e);else if(!a&&s.enabled)await s.disable();else if(a&&s.enabled){let n=s.id.replace("Optimization","Options"),o=JSON.stringify(t[n]||{}),c=JSON.stringify(e[n]||{});o!==c&&await s.updateOptions(e[n]||{})}}}}notifyNavigation(e){if(this.isMasterActive){for(let t of this.modules.values())if(t.enabled&&typeof t.onNavigate=="function")try{t.onNavigate(e)}catch(i){console.warn(`[itzTikTokOptimizer] Navigation handler error in ${t.id}:`,i)}}}getDiagnosticsSummary(){let e={};for(let t of this.modules.values())e[t.id]={name:t.name,enabled:t.enabled,activeObservers:t.observers.length,activeListeners:t.eventListeners.length};return e}};var S="itz_tiktok_optimizer_settings";var q={GET_SETTINGS:"GET_SETTINGS",SETTINGS_UPDATED:"SETTINGS_UPDATED",TOGGLE_MODULE:"TOGGLE_MODULE",TOGGLE_MASTER:"TOGGLE_MASTER",ENABLE_ALL:"ENABLE_ALL",DISABLE_ALL:"DISABLE_ALL",RESET_DEFAULTS:"RESET_DEFAULTS",GET_DIAGNOSTICS:"GET_DIAGNOSTICS",DIAGNOSTICS_RESPONSE:"DIAGNOSTICS_RESPONSE",PAGE_NAVIGATED:"PAGE_NAVIGATED"},u={FEED:"feed",MESSAGES:"messages",NOTIFICATIONS:"notifications",LIVE:"live",SERIES:"series",PROFILE:"profile",VIDEO:"video",EXPLORE:"explore",UNKNOWN:"unknown"},l={MESSAGING:"messagingOptimization",NOTIFICATIONS:"notificationOptimization",FEED:"feedOptimization",LIVE_REMOVAL:"liveRemoval",DRAMA_REMOVAL:"dramaRemoval",MEDIA:"mediaOptimization",ANIMATIONS:"animationReduction",INTERFACE_CLEANUP:"interfaceCleanup",BACKGROUND_ACTIVITY:"backgroundActivityOptimization",DIAGNOSTICS:"performanceDiagnostics"};var H=u.UNKNOWN,D="",U=new Set,Y=!1;function K(r){return!r||r==="/"||r==="/foryou"||r==="/following"?u.FEED:r.startsWith("/messages")?u.MESSAGES:r.startsWith("/live")?u.LIVE:r.startsWith("/series")||r.startsWith("/drama")||r.startsWith("/shortdrama")||r.startsWith("/short-drama")?u.SERIES:r.startsWith("/explore")?u.EXPLORE:r.startsWith("/@")&&!r.includes("/video/")?u.PROFILE:r.includes("/video/")?u.VIDEO:u.FEED}function L(){let r=window.location.pathname;if(r===D)return;D=r;let e=K(r),t=H;H=e;for(let i of U)try{i({route:e,previousRoute:t,pathname:r})}catch(s){console.warn("[itzTikTokOptimizer] Route listener error:",s)}}function Q(){if(Y||typeof window>"u")return;Y=!0,D=window.location.pathname,H=K(D);let r=window.history.pushState;window.history.pushState=function(...t){let i=r.apply(this,t);return setTimeout(L,0),i};let e=window.history.replaceState;window.history.replaceState=function(...t){let i=e.apply(this,t);return setTimeout(L,0),i},window.addEventListener("popstate",L),window.addEventListener("hashchange",L)}function Z(r){return U.add(r),()=>U.delete(r)}var ae=Object.freeze({masterEnabled:!0,messagingOptimization:!0,messagingOptions:{virtualizeList:!0,deferInboxInit:!0,reducePreviewProcessing:!0},notificationOptimization:!0,notificationOptions:{deferPopoverRender:!0,suppressBadgeAnimation:!0},feedOptimization:!0,feedOptions:{virtualizeFeed:!0,containLayout:!0,throttleScrollWork:!0},liveRemoval:!0,liveOptions:{hideNavEntry:!0,suppressFeedCards:!0,suppressPromos:!0},dramaRemoval:!0,dramaOptions:{hideSeriesCards:!0,hideSeriesNav:!0,hideDramaPromos:!0},mediaOptimization:!0,mediaOptions:{pauseOffscreenVideo:!0,suppressPromoAutoplay:!0},animationReduction:!0,animationOptions:{reduceDecorative:!0,respectReducedMotion:!0},interfaceCleanup:!0,interfaceOptions:{hideAppDownloadBanner:!0,hideFloatingFeedback:!0,hideQrCodePrompts:!0},backgroundActivityOptimization:!0,backgroundOptions:{throttleWhenHidden:!0,pauseMediaOnHidden:!1},performanceDiagnostics:!1,diagnosticsOptions:{measureMutations:!0,measureDomNodes:!0,logToConsole:!1}});function ee(){return JSON.parse(JSON.stringify(ae))}var V=null;function te(r,e){if(!e||typeof e!="object")return JSON.parse(JSON.stringify(r));let t={...r};for(let i of Object.keys(r))e[i]===void 0?t[i]=JSON.parse(JSON.stringify(r[i])):typeof r[i]=="object"&&r[i]!==null&&!Array.isArray(r[i])?t[i]={...r[i],...typeof e[i]=="object"&&e[i]!==null?e[i]:{}}:t[i]=e[i];return t}async function ie(){let r=ee();if(typeof chrome<"u"&&chrome.storage&&chrome.storage.local)try{let t=(await chrome.storage.local.get([S]))[S];return te(r,t)}catch(e){console.warn("[itzTikTokOptimizer] Error reading chrome.storage:",e)}return V?te(r,V):(V=r,r)}function se(r){if(typeof chrome<"u"&&chrome.storage&&chrome.storage.onChanged){let e=(t,i)=>{i==="local"&&t[S]&&r(t[S].newValue)};return chrome.storage.onChanged.addListener(e),()=>chrome.storage.onChanged.removeListener(e)}return()=>{}}var T=class extends d{constructor(){super(l.MESSAGING,"Messaging Optimization"),this.isChatRoute=!1,this.listObserver=null}async onEnable(e){this.applyMessagingStyles(),this.updateRouteState(window.location.pathname.startsWith("/messages"))}async onDisable(){this.removeCSS(),this.listObserver&&(this.listObserver.disconnect(),this.listObserver=null)}onNavigate(e){if(!this.enabled)return;let t=e.route===u.MESSAGES||e.pathname.startsWith("/messages");this.updateRouteState(t)}updateRouteState(e){this.isChatRoute=e,this.applyMessagingStyles(),e?this.attachScopedChatObserver():this.listObserver&&(this.listObserver.disconnect(),this.listObserver=null)}applyMessagingStyles(){if(!this.enabled)return;let e=`
-      /* 1. Conversation List Item Virtualization */
-      /* Blazing-fast scrolling for 100+ conversations & large group chats */
-      div[data-e2e="chat-item"],
-      div[class*="ConversationItem"],
-      div[class*="ChatListItem"],
-      div[class*="chat-item"] {
-        content-visibility: auto;
-        contain-intrinsic-size: 72px;
-        contain: layout style;
+(()=>{var b="itz-opt-style-";function V(s,e){if(typeof document>"u")return null;let t=s.startsWith(b)?s:`${b}${s}`,i=document.getElementById(t);if(!i){i=document.createElement("style"),i.id=t,i.setAttribute("type","text/css"),i.setAttribute("data-itz-source","itzTikTokOptimizer");let r=document.head||document.documentElement;r&&r.appendChild(i)}return i.textContent!==e&&(i.textContent=e),i}function $(s){if(typeof document>"u")return!1;let e=s.startsWith(b)?s:`${b}${s}`,t=document.getElementById(e);return t&&t.parentNode?(t.parentNode.removeChild(t),!0):!1}function h(s){if(typeof MutationObserver>"u")return null;let{target:e=typeof document<"u"?document.body:null,config:t={childList:!0,subtree:!0},filter:i=null,onBatch:r=()=>{},debounceMs:n=60}=s;if(!e)return null;let a=[],o=null,c=null,p=!1,f=()=>{if(a.length===0)return;let w=a;a=[],p=!0;try{r(w)}catch(y){console.warn("[itzTikTokOptimizer] Batched observer error:",y)}finally{p=!1}},B=new MutationObserver(w=>{if(!p){for(let y=0;y<w.length;y++){let m=w[y];m.target&&m.target.id&&m.target.id.startsWith(b)||m.target&&m.target.getAttribute&&m.target.getAttribute("data-itz-source")||i&&!i(m)||a.push(m)}a.length>0&&(n>0?c||(c=setTimeout(()=>{c=null,f()},n)):o||(o=requestAnimationFrame(()=>{o=null,f()})))}});return B.observe(e,t),{observer:B,disconnect:()=>{c&&clearTimeout(c),o&&cancelAnimationFrame(o),B.disconnect(),a=[]}}}var d=class{constructor(e,t){this.id=e,this.name=t,this.enabled=!1,this.initialized=!1,this.options={},this.styleId=`itz-mod-${e}`,this.observers=[],this.eventListeners=[],this.cleanupTasks=[]}async init(e){this.initialized=!0,this.options=e[this.id.replace("Optimization","Options")]||{}}async enable(e){if(!this.enabled){this.enabled=!0,this.options=e[this.id.replace("Optimization","Options")]||{};try{await this.onEnable(e)}catch(t){console.error(`[itzTikTokOptimizer] Error enabling module ${this.name}:`,t)}}}async disable(){if(this.enabled){this.enabled=!1;try{await this.onDisable()}catch(e){console.error(`[itzTikTokOptimizer] Error disabling module ${this.name}:`,e)}finally{this.teardownResources()}}}async updateOptions(e){this.options={...this.options,...e},this.enabled&&await this.onOptionsUpdated(this.options)}async onEnable(e){}async onDisable(){}async onOptionsUpdated(e){}onNavigate(e){}injectCSS(e){return V(this.styleId,e)}removeCSS(){return $(this.styleId)}registerObserver(e){return e&&this.observers.push(e),e}registerListener(e,t,i,r=!1){e&&e.addEventListener&&(e.addEventListener(t,i,r),this.eventListeners.push({target:e,type:t,handler:i,options:r}))}registerCleanup(e){typeof e=="function"&&this.cleanupTasks.push(e)}teardownResources(){for(let e of this.observers)try{typeof e.disconnect=="function"&&e.disconnect()}catch(t){console.warn(`[itzTikTokOptimizer] Observer cleanup error in ${this.id}:`,t)}this.observers=[];for(let e of this.eventListeners)try{e.target.removeEventListener(e.type,e.handler,e.options)}catch(t){console.warn(`[itzTikTokOptimizer] Listener cleanup error in ${this.id}:`,t)}this.eventListeners=[],this.removeCSS();for(let e of this.cleanupTasks)try{e()}catch(t){console.warn(`[itzTikTokOptimizer] Cleanup task error in ${this.id}:`,t)}this.cleanupTasks=[]}destroy(){this.disable(),this.initialized=!1}},O=class{constructor(){this.modules=new Map,this.currentSettings=null,this.isMasterActive=!0}register(e){return this.modules.set(e.id,e),this}getModule(e){return this.modules.get(e)}getAllModules(){return Array.from(this.modules.values())}async initAll(e){this.currentSettings=e,this.isMasterActive=!!e.masterEnabled;for(let t of this.modules.values())try{await t.init(e),this.isMasterActive&&e[t.id]&&await t.enable(e)}catch(i){console.error(`[itzTikTokOptimizer] Failed initializing module ${t.id}:`,i)}}async syncSettings(e){let t=this.currentSettings||{};this.currentSettings=e;let i=t.masterEnabled!==e.masterEnabled;if(this.isMasterActive=!!e.masterEnabled,!this.isMasterActive){for(let r of this.modules.values())r.enabled&&await r.disable();return}for(let r of this.modules.values()){let n=!!e[r.id];if(i&&n&&!r.enabled)await r.enable(e);else if(!i){if(n&&!r.enabled)await r.enable(e);else if(!n&&r.enabled)await r.disable();else if(n&&r.enabled){let a=r.id.replace("Optimization","Options"),o=JSON.stringify(t[a]||{}),c=JSON.stringify(e[a]||{});o!==c&&await r.updateOptions(e[a]||{})}}}}notifyNavigation(e){if(this.isMasterActive){for(let t of this.modules.values())if(t.enabled&&typeof t.onNavigate=="function")try{t.onNavigate(e)}catch(i){console.warn(`[itzTikTokOptimizer] Navigation handler error in ${t.id}:`,i)}}}getDiagnosticsSummary(){let e={};for(let t of this.modules.values())e[t.id]={name:t.name,enabled:t.enabled,activeObservers:t.observers.length,activeListeners:t.eventListeners.length};return e}};var S="itz_tiktok_optimizer_settings";var G={GET_SETTINGS:"GET_SETTINGS",SETTINGS_UPDATED:"SETTINGS_UPDATED",TOGGLE_MODULE:"TOGGLE_MODULE",TOGGLE_MASTER:"TOGGLE_MASTER",ENABLE_ALL:"ENABLE_ALL",DISABLE_ALL:"DISABLE_ALL",RESET_DEFAULTS:"RESET_DEFAULTS",GET_DIAGNOSTICS:"GET_DIAGNOSTICS",DIAGNOSTICS_RESPONSE:"DIAGNOSTICS_RESPONSE",PAGE_NAVIGATED:"PAGE_NAVIGATED"},u={FEED:"feed",MESSAGES:"messages",NOTIFICATIONS:"notifications",LIVE:"live",SERIES:"series",PROFILE:"profile",VIDEO:"video",EXPLORE:"explore",UNKNOWN:"unknown"},l={MESSAGING:"messagingOptimization",NOTIFICATIONS:"notificationOptimization",FEED:"feedOptimization",LIVE_REMOVAL:"liveRemoval",DRAMA_REMOVAL:"dramaRemoval",MEDIA:"mediaOptimization",ANIMATIONS:"animationReduction",INTERFACE_CLEANUP:"interfaceCleanup",BACKGROUND_ACTIVITY:"backgroundActivityOptimization",DIAGNOSTICS:"performanceDiagnostics"};var F=u.UNKNOWN,D="",H=new Set,X=!1;function J(s){return!s||s==="/"||s==="/foryou"||s==="/following"?u.FEED:s.startsWith("/messages")?u.MESSAGES:s.startsWith("/live")?u.LIVE:s.startsWith("/series")||s.startsWith("/drama")||s.startsWith("/shortdrama")||s.startsWith("/short-drama")?u.SERIES:s.startsWith("/explore")?u.EXPLORE:s.startsWith("/@")&&!s.includes("/video/")?u.PROFILE:s.includes("/video/")?u.VIDEO:u.FEED}function A(){let s=window.location.pathname;if(s===D)return;D=s;let e=J(s),t=F;F=e;for(let i of H)try{i({route:e,previousRoute:t,pathname:s})}catch(r){console.warn("[itzTikTokOptimizer] Route listener error:",r)}}function Y(){if(X||typeof window>"u")return;X=!0,D=window.location.pathname,F=J(D);let s=window.history.pushState;window.history.pushState=function(...t){let i=s.apply(this,t);return setTimeout(A,0),i};let e=window.history.replaceState;window.history.replaceState=function(...t){let i=e.apply(this,t);return setTimeout(A,0),i},window.addEventListener("popstate",A),window.addEventListener("hashchange",A)}function K(s){return H.add(s),()=>H.delete(s)}var re=Object.freeze({masterEnabled:!0,messagingOptimization:!0,messagingOptions:{virtualizeList:!0,deferInboxInit:!0,reducePreviewProcessing:!0},notificationOptimization:!0,notificationOptions:{deferPopoverRender:!0,suppressBadgeAnimation:!0},feedOptimization:!0,feedOptions:{virtualizeFeed:!0,containLayout:!0,throttleScrollWork:!0},liveRemoval:!0,liveOptions:{hideNavEntry:!0,suppressFeedCards:!0,suppressPromos:!0},dramaRemoval:!0,dramaOptions:{hideSeriesCards:!0,hideSeriesNav:!0,hideDramaPromos:!0},mediaOptimization:!0,mediaOptions:{pauseOffscreenVideo:!0,suppressPromoAutoplay:!0},animationReduction:!0,animationOptions:{reduceDecorative:!0,respectReducedMotion:!0},interfaceCleanup:!0,interfaceOptions:{hideAppDownloadBanner:!0,hideFloatingFeedback:!0,hideQrCodePrompts:!0},backgroundActivityOptimization:!0,backgroundOptions:{throttleWhenHidden:!0,pauseMediaOnHidden:!1},performanceDiagnostics:!1,diagnosticsOptions:{measureMutations:!0,measureDomNodes:!0,logToConsole:!1}});function Q(){return JSON.parse(JSON.stringify(re))}var q=null;function Z(s,e){if(!e||typeof e!="object")return JSON.parse(JSON.stringify(s));let t={...s};for(let i of Object.keys(s))e[i]===void 0?t[i]=JSON.parse(JSON.stringify(s[i])):typeof s[i]=="object"&&s[i]!==null&&!Array.isArray(s[i])?t[i]={...s[i],...typeof e[i]=="object"&&e[i]!==null?e[i]:{}}:t[i]=e[i];return t}async function ee(){let s=Q();if(typeof chrome<"u"&&chrome.storage&&chrome.storage.local)try{let t=(await chrome.storage.local.get([S]))[S];return Z(s,t)}catch(e){console.warn("[itzTikTokOptimizer] Error reading chrome.storage:",e)}return q?Z(s,q):(q=s,s)}function te(s){if(typeof chrome<"u"&&chrome.storage&&chrome.storage.onChanged){let e=(t,i)=>{i==="local"&&t[S]&&s(t[S].newValue)};return chrome.storage.onChanged.addListener(e),()=>chrome.storage.onChanged.removeListener(e)}return()=>{}}var W="itz-intercept-messaging",T=class extends d{constructor(){super(l.MESSAGING,"Messaging Optimization")}async onEnable(e){if(this.isMessagesRoute()){window.location.replace("/");return}this.injectPageMessagingInterceptor(),this.applyMessagingStyles()}async onDisable(){this.removeCSS(),this.removePageMessagingInterceptor()}onNavigate(e){this.enabled&&e.pathname&&e.pathname.startsWith("/messages")&&window.location.replace("/")}isMessagesRoute(){return typeof window<"u"&&window.location.pathname.startsWith("/messages")}injectPageMessagingInterceptor(){if(typeof document>"u"||document.getElementById(W))return;let e=document.createElement("script");e.id=W,e.setAttribute("data-itz-source","itzTikTokOptimizer"),e.textContent=`
+      (function() {
+        // 1. Intercept fetch for all Direct Messaging / IM / Chat endpoints
+        try {
+          var origFetch = window.fetch;
+          if (origFetch) {
+            window.fetch = function(...args) {
+              var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
+              var lowerUrl = (url || '').toLowerCase();
+
+              if (
+                lowerUrl.includes('/web/im/') ||
+                lowerUrl.includes('/api/v1/web/im/') ||
+                lowerUrl.includes('/v1/im/') ||
+                lowerUrl.includes('/api/im/') ||
+                lowerUrl.includes('/im/message/') ||
+                lowerUrl.includes('/im/conversation/') ||
+                lowerUrl.includes('/im/chat/') ||
+                lowerUrl.includes('/im/batch/') ||
+                lowerUrl.includes('/im/user/') ||
+                lowerUrl.includes('/im/sync/') ||
+                lowerUrl.includes('/message/list/') ||
+                lowerUrl.includes('/chat/list/')
+              ) {
+                return Promise.resolve(new Response(JSON.stringify({
+                  status_code: 0,
+                  status_msg: '',
+                  data: [],
+                  messages: [],
+                  conversations: [],
+                  user_list: [],
+                  has_more: false,
+                  next_cursor: 0
+                }), {
+                  status: 200,
+                  headers: { 'Content-Type': 'application/json' }
+                }));
+              }
+              return origFetch.apply(this, args);
+            };
+          }
+        } catch (e) {}
+
+        // 2. Intercept XMLHttpRequest for Direct Messaging / IM
+        try {
+          var origOpen = XMLHttpRequest.prototype.open;
+          XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+            this._itzImUrl = (typeof url === 'string' ? url : '').toLowerCase();
+            return origOpen.call(this, method, url, ...rest);
+          };
+
+          var origSend = XMLHttpRequest.prototype.send;
+          XMLHttpRequest.prototype.send = function(...args) {
+            if (this._itzImUrl && (
+              this._itzImUrl.includes('/web/im/') ||
+              this._itzImUrl.includes('/v1/im/') ||
+              this._itzImUrl.includes('/api/im/') ||
+              this._itzImUrl.includes('/im/message/') ||
+              this._itzImUrl.includes('/im/conversation/')
+            )) {
+              Object.defineProperty(this, 'readyState', { value: 4, configurable: true });
+              Object.defineProperty(this, 'status', { value: 200, configurable: true });
+              var emptyData = JSON.stringify({
+                status_code: 0,
+                data: [],
+                messages: [],
+                conversations: []
+              });
+              Object.defineProperty(this, 'responseText', { value: emptyData, configurable: true });
+              Object.defineProperty(this, 'response', { value: emptyData, configurable: true });
+              setTimeout(() => {
+                if (typeof this.onreadystatechange === 'function') this.onreadystatechange();
+                if (typeof this.onload === 'function') this.onload();
+              }, 0);
+              return;
+            }
+            return origSend.apply(this, args);
+          };
+        } catch (e) {}
+
+        // 3. Neuter WebSockets connecting to IM gateways
+        try {
+          var OriginalWS = window.WebSocket;
+          if (OriginalWS) {
+            window.WebSocket = function(url, protocols) {
+              var lowerUrl = (typeof url === 'string' ? url : '').toLowerCase();
+              if (lowerUrl.includes('im') || lowerUrl.includes('frontier')) {
+                var mockSocket = {
+                  url: url,
+                  readyState: 3, // CLOSED
+                  bufferedAmount: 0,
+                  send: function() {},
+                  close: function() {},
+                  addEventListener: function() {},
+                  removeEventListener: function() {},
+                  dispatchEvent: function() { return false; },
+                  onopen: null,
+                  onmessage: null,
+                  onerror: null,
+                  onclose: null
+                };
+                return mockSocket;
+              }
+              return new OriginalWS(url, protocols);
+            };
+            window.WebSocket.prototype = OriginalWS.prototype;
+            window.WebSocket.CONNECTING = 0;
+            window.WebSocket.OPEN = 1;
+            window.WebSocket.CLOSING = 2;
+            window.WebSocket.CLOSED = 3;
+          }
+        } catch (e) {}
+      })();
+    `;let t=document.head||document.documentElement;t&&t.appendChild(e)}removePageMessagingInterceptor(){if(typeof document>"u")return;let e=document.getElementById(W);e&&e.parentNode&&e.parentNode.removeChild(e)}applyMessagingStyles(){if(!this.enabled)return;this.injectCSS(`
+      /* 1. Hide Messages button from left sidebar navigation */
+      a[href*="/messages"],
+      li:has(a[href*="/messages"]),
+      div:has(> a[href*="/messages"]),
+      div:has(> div > a[href*="/messages"]),
+      div[data-e2e*="messages"] {
+        display: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        border: none !important;
+        overflow: hidden !important;
       }
 
-      /* 2. Message Bubbles layout containment */
-      div[data-e2e="message-item"],
-      div[class*="MessageItem"],
-      div[class*="ChatMessage"] {
-        contain: layout style;
+      /* 2. Completely destroy all messaging panels, chat lists, and message drawers */
+      div[data-e2e="message-panel"],
+      div[data-e2e="chat-list"],
+      div[data-e2e="message-list"],
+      div[class*="MessagePanel"],
+      div[class*="ChatList"],
+      div[class*="ConversationList"],
+      div[class*="ChatDrawer"],
+      div[class*="DivConversationList"] {
+        display: none !important;
+        height: 0 !important;
+        width: 0 !important;
+        overflow: hidden !important;
       }
-
-      /* 3. Conversation avatar and status badge containment */
-      div[data-e2e="chat-avatar"],
-      div[class*="AvatarContainer"] {
-        contain: paint layout;
-      }
-    `;!this.isChatRoute&&this.options.deferInboxInit!==!1&&(e+=`
-        /* Background messaging drawer dormancy */
-        div[data-e2e="message-panel"]:not([data-active="true"]),
-        div[class*="MessagePanel"]:not([class*="active"]),
-        div[class*="ChatDrawerContainer"]:not([class*="open"]) {
-          content-visibility: hidden;
-          contain: strict;
-        }
-      `),this.injectCSS(e)}attachScopedChatObserver(){if(this.listObserver)return;let e=document.querySelector('div[data-e2e="chat-list"], div[class*="ChatList"], div[class*="ConversationList"]');if(e)this.listObserver=p({target:e,config:{childList:!0,subtree:!1},debounceMs:100,onBatch:t=>{let i=e.querySelectorAll('div[data-e2e="chat-item"]');for(let s=0;s<i.length;s++){let a=i[s];X(a,"msg-opt")||J(a,"msg-opt")}}}),this.listObserver&&this.registerObserver(this.listObserver);else{let t=p({target:document.body,config:{childList:!0,subtree:!0},debounceMs:200,filter:i=>i.addedNodes.length>0,onBatch:()=>{if(!this.isChatRoute||this.listObserver)return;document.querySelector('div[data-e2e="chat-list"], div[class*="ChatList"]')&&(t.disconnect(),this.attachScopedChatObserver())}});t&&this.registerObserver(t)}}};var w="itz-hidden-notification-toast",E="itz-hidden-badge",W="itz-intercept-notifications",N=class extends d{constructor(){super(l.NOTIFICATIONS,"Notification Optimization"),this.observer=null}async onEnable(e){this.injectPageNotificationInterceptor(),this.applyNotificationStyles(),this.eradicateNotificationToasts(),this.eradicateBadges(),this.setupNotificationObserver()}async onDisable(){this.removeCSS(),this.observer&&(this.observer.disconnect(),this.observer=null),this.removePageNotificationInterceptor(),this.restoreSuppressedElements()}injectPageNotificationInterceptor(){if(typeof document>"u"||document.getElementById(W))return;let e=document.createElement("script");e.id=W,e.setAttribute("data-itz-source","itzTikTokOptimizer"),e.textContent=`
+    `)}};var L="itz-hidden-notification-toast",E="itz-hidden-badge",j="itz-intercept-notifications",N=class extends d{constructor(){super(l.NOTIFICATIONS,"Notification Optimization"),this.observer=null}async onEnable(e){this.injectPageNotificationInterceptor(),this.applyNotificationStyles(),this.eradicateNotificationToasts(),this.eradicateBadges(),this.sanitizeDocumentTitle(),this.setupNotificationObserver()}async onDisable(){this.removeCSS(),this.observer&&(this.observer.disconnect(),this.observer=null),this.removePageNotificationInterceptor(),this.restoreSuppressedElements()}injectPageNotificationInterceptor(){if(typeof document>"u"||document.getElementById(j))return;let e=document.createElement("script");e.id=j,e.setAttribute("data-itz-source","itzTikTokOptimizer"),e.textContent=`
       (function() {
         // 1. Neuter Web Notifications API
         try {
@@ -51,19 +162,46 @@
           }
         } catch (e) {}
 
-        // 2. Intercept fetch notice polling
+        // 2. Title Sanitizer - Strips [99+], (99+), [1] from browser tab title
         try {
-          const originalFetch = window.fetch;
+          var cleanTitle = function(t) {
+            if (!t || typeof t !== 'string') return t;
+            return t.replace(/^\\[\\d+\\+?\\]\\s*/, '').replace(/^\\(\\d+\\+?\\)\\s*/, '');
+          };
+          if (document.title) {
+            document.title = cleanTitle(document.title);
+          }
+          var titleDesc = Object.getOwnPropertyDescriptor(Document.prototype, 'title') ||
+                          Object.getOwnPropertyDescriptor(HTMLDocument.prototype, 'title');
+          if (titleDesc && titleDesc.set) {
+            var origSet = titleDesc.set;
+            Object.defineProperty(document, 'title', {
+              set: function(val) {
+                origSet.call(this, cleanTitle(val));
+              },
+              get: function() {
+                return titleDesc.get.call(this);
+              },
+              configurable: true
+            });
+          }
+        } catch (e) {}
+
+        // 3. Intercept fetch notice polling
+        try {
+          var originalFetch = window.fetch;
           if (originalFetch) {
             window.fetch = function(...args) {
-              const url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
-              if (url && (
-                url.includes('/api/notice/') ||
-                url.includes('/api/v1/notice/') ||
-                url.includes('/notice/multi/') ||
-                url.includes('/notice/count/') ||
-                url.includes('/passport/web/account/notice/')
-              )) {
+              var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
+              var lowerUrl = (url || '').toLowerCase();
+              if (
+                lowerUrl.includes('/api/notice/') ||
+                lowerUrl.includes('/api/v1/notice/') ||
+                lowerUrl.includes('/notice/multi/') ||
+                lowerUrl.includes('/notice/count/') ||
+                lowerUrl.includes('/passport/web/account/notice/') ||
+                lowerUrl.includes('/notification/')
+              ) {
                 return Promise.resolve(new Response(JSON.stringify({
                   status_code: 0,
                   status_msg: '',
@@ -83,31 +221,27 @@
           }
         } catch (e) {}
 
-        // 3. Intercept XMLHttpRequest notice polling
+        // 4. Intercept XMLHttpRequest notice polling
         try {
-          const originalOpen = XMLHttpRequest.prototype.open;
+          var originalOpen = XMLHttpRequest.prototype.open;
           XMLHttpRequest.prototype.open = function(method, url, ...rest) {
-            this._itzUrl = typeof url === 'string' ? url : '';
+            this._itzUrl = (typeof url === 'string' ? url : '').toLowerCase();
             return originalOpen.call(this, method, url, ...rest);
           };
 
-          const originalSend = XMLHttpRequest.prototype.send;
+          var originalSend = XMLHttpRequest.prototype.send;
           XMLHttpRequest.prototype.send = function(...args) {
             if (this._itzUrl && (
               this._itzUrl.includes('/api/notice/') ||
               this._itzUrl.includes('/notice/multi/') ||
-              this._itzUrl.includes('/notice/count/')
+              this._itzUrl.includes('/notice/count/') ||
+              this._itzUrl.includes('/notification/')
             )) {
               Object.defineProperty(this, 'readyState', { value: 4, configurable: true });
               Object.defineProperty(this, 'status', { value: 200, configurable: true });
-              Object.defineProperty(this, 'responseText', {
-                value: JSON.stringify({ status_code: 0, notice_count: 0, data: [], data_count: 0 }),
-                configurable: true
-              });
-              Object.defineProperty(this, 'response', {
-                value: JSON.stringify({ status_code: 0, notice_count: 0, data: [], data_count: 0 }),
-                configurable: true
-              });
+              var emptyData = JSON.stringify({ status_code: 0, notice_count: 0, data: [], data_count: 0 });
+              Object.defineProperty(this, 'responseText', { value: emptyData, configurable: true });
+              Object.defineProperty(this, 'response', { value: emptyData, configurable: true });
               setTimeout(() => {
                 if (typeof this.onreadystatechange === 'function') this.onreadystatechange();
                 if (typeof this.onload === 'function') this.onload();
@@ -118,8 +252,8 @@
           };
         } catch (e) {}
       })();
-    `;let t=document.head||document.documentElement;t&&t.appendChild(e)}removePageNotificationInterceptor(){if(typeof document>"u")return;let e=document.getElementById(W);e&&e.parentNode&&e.parentNode.removeChild(e)}applyNotificationStyles(){if(!this.enabled)return;let e=`
-      /* 1. Complete eradication of all floating notification toast cards (bottom-right popups) */
+    `;let t=document.head||document.documentElement;t&&t.appendChild(e)}removePageNotificationInterceptor(){if(typeof document>"u")return;let e=document.getElementById(j);e&&e.parentNode&&e.parentNode.removeChild(e)}sanitizeDocumentTitle(){typeof document>"u"||!document.title||(document.title=document.title.replace(/^\[\d+\+?\]\s*/,"").replace(/^\(\d+\+?\)\s*/,""))}applyNotificationStyles(){if(!this.enabled)return;let e=`
+      /* 1. Complete eradication of all floating notification toast cards and container lines */
       div[class*="Toast"],
       div[class*="toast"],
       div[class*="NoticeToast"],
@@ -132,11 +266,11 @@
       div[data-e2e*="push-notification"],
       div[data-e2e*="notice-popup"],
       div[data-e2e*="floating-notice"],
-      div[role="alert"]:has(img),
-      div[role="alert"]:has(button),
+      div[role="alert"],
       div[style*="fixed"][style*="bottom"][style*="right"],
       div[style*="fixed"][style*="right"][style*="bottom"],
-      .${w} {
+      .${L} {
+        all: unset !important;
         display: none !important;
         opacity: 0 !important;
         visibility: hidden !important;
@@ -145,10 +279,27 @@
         width: 0 !important;
         margin: 0 !important;
         padding: 0 !important;
+        border: none !important;
+        outline: none !important;
         overflow: hidden !important;
       }
 
-      /* 2. Complete eradication of all red notification badges (99+, dots, counters) */
+      /* 2. Hide Activity button from left sidebar navigation */
+      a[href*="/activity"],
+      li:has(a[href*="/activity"]),
+      div:has(> a[href*="/activity"]),
+      div[data-e2e*="activity"],
+      span[data-e2e*="activity"] {
+        display: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        border: none !important;
+        overflow: hidden !important;
+      }
+
+      /* 3. Complete eradication of all red notification badges (99+, dots, counters) */
       sup[data-e2e="inbox-badge"],
       div[data-e2e="inbox-icon"] sup,
       div[data-e2e="inbox-badge"],
@@ -176,12 +327,12 @@
         line-height: 0 !important;
       }
 
-      /* 3. Notification flyout panel dormant containment when closed */
+      /* 4. Notification flyout panel dormant containment when closed */
       div[data-e2e="inbox-panel"]:not([data-opened="true"]),
       div[class*="NotificationPopover"]:not([class*="show"]) {
         display: none !important;
       }
-    `;this.injectCSS(e)}eradicateNotificationToasts(e=document){if(!e||!e.querySelectorAll)return;let t=e.querySelectorAll('div, [role="alert"], [class*="toast"], [class*="Toast"]');for(let i=0;i<t.length;i++){let s=t[i],a=(s.textContent||"").toLowerCase();if(a.includes("reposted the same video")||a.includes("reposted your video")||a.includes("liked a video you reposted")||a.includes("liked your video")||a.includes("commented on your")||a.includes("started following you")){let o=s.closest('[role="alert"], div[class*="Toast"], div[class*="toast"], div[style*="fixed"]')||s;o.classList.add(w),o.style&&o.style.setProperty&&o.style.setProperty("display","none","important")}}}eradicateBadges(e=document){if(!e||!e.querySelectorAll)return;let t=e.querySelectorAll('sup, span[class*="Badge"], span[class*="badge"], div[class*="Badge"], div[class*="badge"]');for(let s=0;s<t.length;s++)t[s].classList.add(E),t[s].style&&t[s].style.setProperty&&t[s].style.setProperty("display","none","important");let i=e.querySelectorAll("span, div, sup");for(let s=0;s<i.length;s++){let a=i[s],n=(a.textContent||"").trim();(n==="99+"||n==="99"||/^\d+$/.test(n)&&a.children.length===0)&&a.closest('a[href*="/messages"], div[data-e2e="side-nav"], header, nav')&&(a.classList.add(E),a.style&&a.style.setProperty&&a.style.setProperty("display","none","important"))}}setupNotificationObserver(){this.observer||(this.observer=p({target:document.body,config:{childList:!0,subtree:!0},debounceMs:50,filter:e=>e.addedNodes.length>0,onBatch:e=>{for(let t=0;t<e.length;t++){let i=e[t];for(let s=0;s<i.addedNodes.length;s++){let a=i.addedNodes[s];a.nodeType===1&&(this.eradicateNotificationToasts(a),this.eradicateBadges(a))}}}}),this.observer&&this.registerObserver(this.observer))}restoreSuppressedElements(){if(typeof document>"u")return;let e=document.querySelectorAll(`.${w}`);for(let i=0;i<e.length;i++)e[i].classList.remove(w),e[i].style.removeProperty("display");let t=document.querySelectorAll(`.${E}`);for(let i=0;i<t.length;i++)t[i].classList.remove(E),t[i].style.removeProperty("display")}};var C=class extends d{constructor(){super(l.FEED,"Feed Optimization"),this.isFeedRoute=!0}async onEnable(e){this.applyFeedStyles()}async onDisable(){this.removeCSS()}onNavigate(e){this.enabled&&(this.isFeedRoute=e.route===u.FEED,this.isFeedRoute&&this.applyFeedStyles())}applyFeedStyles(){if(!this.enabled)return;this.injectCSS(`
+    `;this.injectCSS(e)}eradicateNotificationToasts(e=document){if(!e||!e.querySelectorAll)return;let t=e.querySelectorAll('div, [role="alert"], [class*="toast"], [class*="Toast"]');for(let i=0;i<t.length;i++){let r=t[i],n=(r.textContent||"").toLowerCase();if(n.includes("reposted the same video")||n.includes("reposted your video")||n.includes("liked a video you reposted")||n.includes("liked your video")||n.includes("commented on your")||n.includes("started following you")){let o=r.closest('[role="alert"], div[class*="Toast"], div[class*="toast"], div[style*="fixed"]')||r;typeof o.remove=="function"?o.remove():(o.classList.add(L),o.style&&o.style.setProperty&&o.style.setProperty("display","none","important"))}}}eradicateBadges(e=document){if(!e||!e.querySelectorAll)return;let t=e.querySelectorAll('sup, span[class*="Badge"], span[class*="badge"], div[class*="Badge"], div[class*="badge"]');for(let r=0;r<t.length;r++)t[r].classList.add(E),t[r].style&&t[r].style.setProperty&&t[r].style.setProperty("display","none","important");let i=e.querySelectorAll("span, div, sup");for(let r=0;r<i.length;r++){let n=i[r],a=(n.textContent||"").trim();(a==="99+"||a==="99"||/^\d+$/.test(a)&&n.children.length===0)&&n.closest('a[href*="/messages"], a[href*="/activity"], div[data-e2e="side-nav"], header, nav')&&(n.classList.add(E),n.style&&n.style.setProperty&&n.style.setProperty("display","none","important"))}}setupNotificationObserver(){this.observer||(this.observer=h({target:document.body,config:{childList:!0,subtree:!0},debounceMs:50,filter:e=>e.addedNodes.length>0,onBatch:e=>{this.sanitizeDocumentTitle();for(let t=0;t<e.length;t++){let i=e[t];for(let r=0;r<i.addedNodes.length;r++){let n=i.addedNodes[r];n.nodeType===1&&(this.eradicateNotificationToasts(n),this.eradicateBadges(n))}}}}),this.observer&&this.registerObserver(this.observer))}restoreSuppressedElements(){if(typeof document>"u")return;let e=document.querySelectorAll(`.${L}`);for(let i=0;i<e.length;i++)e[i].classList.remove(L),e[i].style.removeProperty("display");let t=document.querySelectorAll(`.${E}`);for(let i=0;i<t.length;i++)t[i].classList.remove(E),t[i].style.removeProperty("display")}};var C=class extends d{constructor(){super(l.FEED,"Feed Optimization"),this.isFeedRoute=!0}async onEnable(e){this.applyFeedStyles()}async onDisable(){this.removeCSS()}onNavigate(e){this.enabled&&(this.isFeedRoute=e.route===u.FEED,this.isFeedRoute&&this.applyFeedStyles())}applyFeedStyles(){if(!this.enabled)return;this.injectCSS(`
       /* 1. Feed Container Layout Containment */
       div[data-e2e="recommend-list-item-container"],
       div[class*="DivItemContainerV2"],
@@ -232,7 +383,7 @@
       .${I} {
         display: none !important;
       }
-    `;this.injectCSS(e)}isLiveElement(e){return!e||e.nodeType!==1?!1:!!(e.getAttribute&&e.getAttribute("data-e2e")==="live-card"||e.querySelector&&e.querySelector('a[href*="/live"]')||e.querySelector&&e.querySelector('[data-e2e="live-badge"], span[class*="LiveBadge"]'))}scanAndSuppressLiveElements(e=document){if(!e||!e.querySelectorAll)return;let t=e.querySelectorAll('div[data-e2e="recommend-list-item-container"], div[data-e2e="feed-item"]');for(let i=0;i<t.length;i++){let s=t[i];this.isLiveElement(s)&&s.classList.add(I)}}setupLiveObserver(){this.observer||(this.observer=p({target:document.body,config:{childList:!0,subtree:!0},debounceMs:80,filter:e=>e.addedNodes.length>0,onBatch:e=>{for(let t=0;t<e.length;t++){let i=e[t];for(let s=0;s<i.addedNodes.length;s++){let a=i.addedNodes[s];a.nodeType===1&&this.scanAndSuppressLiveElements(a)}}}}),this.observer&&this.registerObserver(this.observer))}restoreSuppressedElements(){let e=document.querySelectorAll(`.${I}`);for(let t=0;t<e.length;t++)e[t].classList.remove(I)}};var M="itz-hidden-drama-content",v="itz-hidden-drama-button",z=class extends d{constructor(){super(l.DRAMA_REMOVAL,"Short Drama Removal"),this.observer=null}async onEnable(e){if(this.isDramaUrl()){this.preventDramaPageLoading();return}this.applyDramaStyles(),this.suppressSidebarButton(),this.compactSidebarNavigation(),this.scanAndSuppressDramaElements(),this.setupDramaObserver()}async onDisable(){this.removeCSS(),this.observer&&(this.observer.disconnect(),this.observer=null),this.restoreSuppressedElements()}onNavigate(e){if(this.enabled){if(this.isDramaUrl(e.pathname)){this.preventDramaPageLoading();return}this.suppressSidebarButton(),this.compactSidebarNavigation(),this.scanAndSuppressDramaElements()}}isDramaUrl(e){let t=(e||(typeof window<"u"?window.location.pathname:"")).toLowerCase();return t.startsWith("/shortdrama")||t.startsWith("/short-drama")||t.startsWith("/series")||t.startsWith("/drama")}preventDramaPageLoading(){typeof window>"u"||(document&&document.documentElement&&(document.documentElement.style.display="none"),window.location.replace("/"))}applyDramaStyles(){if(!this.enabled)return;let e=`
+    `;this.injectCSS(e)}isLiveElement(e){return!e||e.nodeType!==1?!1:!!(e.getAttribute&&e.getAttribute("data-e2e")==="live-card"||e.querySelector&&e.querySelector('a[href*="/live"]')||e.querySelector&&e.querySelector('[data-e2e="live-badge"], span[class*="LiveBadge"]'))}scanAndSuppressLiveElements(e=document){if(!e||!e.querySelectorAll)return;let t=e.querySelectorAll('div[data-e2e="recommend-list-item-container"], div[data-e2e="feed-item"]');for(let i=0;i<t.length;i++){let r=t[i];this.isLiveElement(r)&&r.classList.add(I)}}setupLiveObserver(){this.observer||(this.observer=h({target:document.body,config:{childList:!0,subtree:!0},debounceMs:80,filter:e=>e.addedNodes.length>0,onBatch:e=>{for(let t=0;t<e.length;t++){let i=e[t];for(let r=0;r<i.addedNodes.length;r++){let n=i.addedNodes[r];n.nodeType===1&&this.scanAndSuppressLiveElements(n)}}}}),this.observer&&this.registerObserver(this.observer))}restoreSuppressedElements(){let e=document.querySelectorAll(`.${I}`);for(let t=0;t<e.length;t++)e[t].classList.remove(I)}};var M="itz-hidden-drama-content",v="itz-hidden-drama-button",z=class extends d{constructor(){super(l.DRAMA_REMOVAL,"Short Drama Removal"),this.observer=null}async onEnable(e){if(this.isDramaUrl()){this.preventDramaPageLoading();return}this.applyDramaStyles(),this.suppressSidebarButton(),this.compactSidebarNavigation(),this.scanAndSuppressDramaElements(),this.setupDramaObserver()}async onDisable(){this.removeCSS(),this.observer&&(this.observer.disconnect(),this.observer=null),this.restoreSuppressedElements()}onNavigate(e){if(this.enabled){if(this.isDramaUrl(e.pathname)){this.preventDramaPageLoading();return}this.suppressSidebarButton(),this.compactSidebarNavigation(),this.scanAndSuppressDramaElements()}}isDramaUrl(e){let t=(e||(typeof window<"u"?window.location.pathname:"")).toLowerCase();return t.startsWith("/shortdrama")||t.startsWith("/short-drama")||t.startsWith("/series")||t.startsWith("/drama")}preventDramaPageLoading(){typeof window>"u"||(document&&document.documentElement&&(document.documentElement.style.display="none"),window.location.replace("/"))}applyDramaStyles(){if(!this.enabled)return;let e=`
       /* 1. Complete suppression of Short Drama Button and its wrapper container */
       a[href*="/shortdrama"],
       a[href*="/short-drama"],
@@ -292,10 +443,15 @@
         padding-bottom: 0 !important;
       }
 
-      /* Pull Messages group directly below Friends */
+      /* Pull lower navigation group (Upload, Profile, Messages) directly below Friends */
+      div[data-e2e="side-nav"] ul:has(a[href*="/upload"]),
+      div[data-e2e="side-nav"] div:has(> a[href*="/upload"]),
+      div[data-e2e="side-nav"] ul:has(a[href*="/@"]),
       div[data-e2e="side-nav"] ul:has(a[href*="/messages"]),
       div[data-e2e="side-nav"] div:has(> a[href*="/messages"]),
       div[data-e2e="side-nav"] div:has(> div > a[href*="/messages"]),
+      div[class*="SideNav"] ul:has(a[href*="/upload"]),
+      div[class*="SideNav"] div:has(a[href*="/upload"]),
       div[class*="SideNav"] ul:has(a[href*="/messages"]),
       div[class*="SideNav"] div:has(a[href*="/messages"]) {
         margin-top: 4px !important;
@@ -343,7 +499,7 @@
       .${M} {
         display: none !important;
       }
-    `;this.injectCSS(e)}suppressSidebarButton(e=document){if(!e||!e.querySelectorAll)return;let t=e.querySelectorAll('a, button, [role="button"], [role="link"]');for(let i=0;i<t.length;i++){let s=t[i],a=(s.getAttribute("href")||"").toLowerCase(),n=(s.textContent||"").trim().toLowerCase(),o=(s.getAttribute("data-e2e")||"").toLowerCase();if(a.includes("/shortdrama")||a.includes("/short-drama")||a.includes("/series")||a.includes("/drama")||o.includes("shortdrama")||o.includes("short-drama")||n==="short dramas"||n==="short drama"||n.startsWith("short drama")){s.classList.add(v);let m=s.closest('li, [role="listitem"]');if(m)m.classList.add(v);else if(s.parentElement&&s.parentElement!==document.body){let f=s.parentElement;(f.children.length===1||f.textContent.trim().toLowerCase()===n)&&f.classList.add(v)}}}}compactSidebarNavigation(e=document){if(!e||!e.querySelectorAll)return;let t=e.querySelector?e.querySelector('a[href*="/messages"]'):null;if(t){let s=t.closest('ul, div[class*="NavSection"], div[class*="List"]');if(s&&s.style){s.style.setProperty("margin-top","4px","important"),s.style.setProperty("padding-top","0px","important");let a=s.previousElementSibling;for(;a;){if(!(a.textContent||"").trim()||a.matches&&a.matches('hr, div[class*="Divider"], div[class*="Spacer"], div[class*="Line"]'))a.style&&(a.style.setProperty("margin","2px 0","important"),a.style.setProperty("height","1px","important"),a.style.setProperty("min-height","0px","important"));else{a.style&&(a.style.setProperty("min-height","0px","important"),a.style.setProperty("margin-bottom","2px","important"),a.style.setProperty("padding-bottom","0px","important"));break}a=a.previousElementSibling}}}let i=e.querySelector?e.querySelector('a[href*="/friends"]'):null;if(i){let s=i.closest('ul, div[class*="NavSection"], div[class*="List"]');s&&s.style&&(s.style.setProperty("min-height","0px","important"),s.style.setProperty("margin-bottom","2px","important"))}}isDramaElement(e){return!e||e.nodeType!==1?!1:!!(e.getAttribute&&(e.getAttribute("data-e2e")==="series-card"||e.getAttribute("data-e2e")==="drama-card"||e.getAttribute("data-e2e")==="shortdrama-card"||e.getAttribute("data-e2e")&&e.getAttribute("data-e2e").includes("shortdrama"))||e.querySelector&&e.querySelector('a[href*="/shortdrama"], a[href*="/short-drama"], a[href*="/series/"], a[href*="/drama/"]'))}scanAndSuppressDramaElements(e=document){if(!e||!e.querySelectorAll)return;let t=e.querySelectorAll('div[data-e2e="recommend-list-item-container"], div[data-e2e="feed-item"]');for(let i=0;i<t.length;i++){let s=t[i];this.isDramaElement(s)&&s.classList.add(M)}}setupDramaObserver(){this.observer||(this.observer=p({target:document.body,config:{childList:!0,subtree:!0},debounceMs:60,filter:e=>e.addedNodes.length>0,onBatch:e=>{for(let t=0;t<e.length;t++){let i=e[t];for(let s=0;s<i.addedNodes.length;s++){let a=i.addedNodes[s];a.nodeType===1&&(this.suppressSidebarButton(a),this.compactSidebarNavigation(a),this.scanAndSuppressDramaElements(a))}}}}),this.observer&&this.registerObserver(this.observer))}restoreSuppressedElements(){if(typeof document>"u")return;document.documentElement&&document.documentElement.style.display==="none"&&(document.documentElement.style.display="");let e=document.querySelectorAll(`.${M}`);for(let i=0;i<e.length;i++)e[i].classList.remove(M);let t=document.querySelectorAll(`.${v}`);for(let i=0;i<t.length;i++)t[i].classList.remove(v)}};var R=class extends d{constructor(){super(l.MEDIA,"Media Optimization"),this.mediaObserver=null,this.trackedVideos=new WeakSet}async onEnable(e){this.applyMediaStyles(),this.setupVideoObserver()}async onDisable(){this.removeCSS(),this.mediaObserver&&(this.mediaObserver.disconnect(),this.mediaObserver=null)}applyMediaStyles(){if(!this.enabled)return;this.injectCSS(`
+    `;this.injectCSS(e)}suppressSidebarButton(e=document){if(!e||!e.querySelectorAll)return;let t=e.querySelectorAll('a, button, [role="button"], [role="link"]');for(let i=0;i<t.length;i++){let r=t[i],n=(r.getAttribute("href")||"").toLowerCase(),a=(r.textContent||"").trim().toLowerCase(),o=(r.getAttribute("data-e2e")||"").toLowerCase();if(n.includes("/shortdrama")||n.includes("/short-drama")||n.includes("/series")||n.includes("/drama")||o.includes("shortdrama")||o.includes("short-drama")||a==="short dramas"||a==="short drama"||a.startsWith("short drama")){r.classList.add(v);let p=r.closest('li, [role="listitem"]');if(p)p.classList.add(v);else if(r.parentElement&&r.parentElement!==document.body){let f=r.parentElement;(f.children.length===1||f.textContent.trim().toLowerCase()===a)&&f.classList.add(v)}}}}compactSidebarNavigation(e=document){if(!e||!e.querySelectorAll)return;let t=e.querySelector?e.querySelector('a[href*="/upload"], a[href*="/@"], a[href*="/profile"], a[href*="/messages"]'):null;if(t){let r=t.closest('ul, div[class*="NavSection"], div[class*="List"]');if(r&&r.style){r.style.setProperty("margin-top","4px","important"),r.style.setProperty("padding-top","0px","important");let n=r.previousElementSibling;for(;n;){if(!(n.textContent||"").trim()||n.matches&&n.matches('hr, div[class*="Divider"], div[class*="Spacer"], div[class*="Line"]'))n.style&&(n.style.setProperty("margin","2px 0","important"),n.style.setProperty("height","1px","important"),n.style.setProperty("min-height","0px","important"));else{n.style&&(n.style.setProperty("min-height","0px","important"),n.style.setProperty("margin-bottom","2px","important"),n.style.setProperty("padding-bottom","0px","important"));break}n=n.previousElementSibling}}}let i=e.querySelector?e.querySelector('a[href*="/friends"]'):null;if(i){let r=i.closest('ul, div[class*="NavSection"], div[class*="List"]');r&&r.style&&(r.style.setProperty("min-height","0px","important"),r.style.setProperty("margin-bottom","2px","important"))}}isDramaElement(e){return!e||e.nodeType!==1?!1:!!(e.getAttribute&&(e.getAttribute("data-e2e")==="series-card"||e.getAttribute("data-e2e")==="drama-card"||e.getAttribute("data-e2e")==="shortdrama-card"||e.getAttribute("data-e2e")&&e.getAttribute("data-e2e").includes("shortdrama"))||e.querySelector&&e.querySelector('a[href*="/shortdrama"], a[href*="/short-drama"], a[href*="/series/"], a[href*="/drama/"]'))}scanAndSuppressDramaElements(e=document){if(!e||!e.querySelectorAll)return;let t=e.querySelectorAll('div[data-e2e="recommend-list-item-container"], div[data-e2e="feed-item"]');for(let i=0;i<t.length;i++){let r=t[i];this.isDramaElement(r)&&r.classList.add(M)}}setupDramaObserver(){this.observer||(this.observer=h({target:document.body,config:{childList:!0,subtree:!0},debounceMs:60,filter:e=>e.addedNodes.length>0,onBatch:e=>{for(let t=0;t<e.length;t++){let i=e[t];for(let r=0;r<i.addedNodes.length;r++){let n=i.addedNodes[r];n.nodeType===1&&(this.suppressSidebarButton(n),this.compactSidebarNavigation(n),this.scanAndSuppressDramaElements(n))}}}}),this.observer&&this.registerObserver(this.observer))}restoreSuppressedElements(){if(typeof document>"u")return;document.documentElement&&document.documentElement.style.display==="none"&&(document.documentElement.style.display="");let e=document.querySelectorAll(`.${M}`);for(let i=0;i<e.length;i++)e[i].classList.remove(M);let t=document.querySelectorAll(`.${v}`);for(let i=0;i<t.length;i++)t[i].classList.remove(v)}};var _=class extends d{constructor(){super(l.MEDIA,"Media Optimization"),this.mediaObserver=null,this.trackedVideos=new WeakSet}async onEnable(e){this.applyMediaStyles(),this.setupVideoObserver()}async onDisable(){this.removeCSS(),this.mediaObserver&&(this.mediaObserver.disconnect(),this.mediaObserver=null)}applyMediaStyles(){if(!this.enabled)return;this.injectCSS(`
       /* Video Player Container Containment */
       div[data-e2e="feed-video"],
       div[class*="DivVideoPlayerContainer"],
@@ -356,7 +512,7 @@
       div[class*="DivItemContainer"] {
         contain: layout style;
       }
-    `)}setupVideoObserver(){this.mediaObserver||typeof IntersectionObserver>"u"||this.options.pauseOffscreenVideo!==!1&&(this.mediaObserver=new IntersectionObserver(e=>{for(let t=0;t<e.length;t++){let i=e[t],s=i.target;document.fullscreenElement===s||s.closest(":fullscreen")||(!i.isIntersecting||i.intersectionRatio<.05?!s.paused&&!s.ended&&(s.dataset.itzOffscreenPaused="true",s.pause()):i.intersectionRatio>=.5&&s.dataset.itzOffscreenPaused==="true"&&(delete s.dataset.itzOffscreenPaused,s.play().catch(()=>{})))}},{threshold:[0,.5]}),this.registerObserver(this.mediaObserver),this.observeExistingVideos())}observeExistingVideos(){if(!this.mediaObserver)return;let e=document.querySelectorAll("video");for(let t=0;t<e.length;t++){let i=e[t];this.trackedVideos.has(i)||(this.trackedVideos.add(i),this.mediaObserver.observe(i))}}};var _=class extends d{constructor(){super(l.ANIMATIONS,"Animation Reduction")}async onEnable(e){this.applyAnimationStyles()}async onDisable(){this.removeCSS()}applyAnimationStyles(){if(!this.enabled)return;this.injectCSS(`
+    `)}setupVideoObserver(){this.mediaObserver||typeof IntersectionObserver>"u"||this.options.pauseOffscreenVideo!==!1&&(this.mediaObserver=new IntersectionObserver(e=>{for(let t=0;t<e.length;t++){let i=e[t],r=i.target;document.fullscreenElement===r||r.closest(":fullscreen")||(!i.isIntersecting||i.intersectionRatio<.05?!r.paused&&!r.ended&&(r.dataset.itzOffscreenPaused="true",r.pause()):i.intersectionRatio>=.5&&r.dataset.itzOffscreenPaused==="true"&&(delete r.dataset.itzOffscreenPaused,r.play().catch(()=>{})))}},{threshold:[0,.5]}),this.registerObserver(this.mediaObserver),this.observeExistingVideos())}observeExistingVideos(){if(!this.mediaObserver)return;let e=document.querySelectorAll("video");for(let t=0;t<e.length;t++){let i=e[t];this.trackedVideos.has(i)||(this.trackedVideos.add(i),this.mediaObserver.observe(i))}}};var P=class extends d{constructor(){super(l.ANIMATIONS,"Animation Reduction")}async onEnable(e){this.applyAnimationStyles()}async onDisable(){this.removeCSS()}applyAnimationStyles(){if(!this.enabled)return;this.injectCSS(`
       /* 1. Stop continuous spinning vinyl record animation */
       div[data-e2e="music-cover"],
       div[class*="AlbumArt"],
@@ -466,8 +622,8 @@
       div[class*="DivBannerWrapper"] {
         display: none !important;
       }
-    `;this.injectCSS(e)}cleanHeaderPromos(e=document){if(!e||!e.querySelectorAll)return;let t=e.querySelectorAll('a, button, [role="button"], [role="link"]');for(let i=0;i<t.length;i++){let s=t[i],a=(s.textContent||"").trim().toLowerCase(),n=(s.getAttribute("href")||"").toLowerCase();if(a.includes("get coins")||a.includes("get app")||n.includes("/coin")||n.includes("/download")||s.getAttribute("data-e2e")&&(s.getAttribute("data-e2e").includes("coin")||s.getAttribute("data-e2e").includes("download"))){s.classList.add(g),s.parentElement&&s.parentElement.children.length===1&&s.parentElement.classList.add(g);let c=s.nextElementSibling;if(c&&(c.tagName==="SPAN"||c.tagName==="DIV"||c.matches('span, div[class*="Divider"], div[class*="Splitter"], div[class*="Line"]'))){let m=(c.textContent||"").trim();(!m||m==="|"||c.offsetWidth<=2)&&c.classList.add(g)}}}}setupCleanupObserver(){this.observer||(this.observer=p({target:document.body,config:{childList:!0,subtree:!0},debounceMs:80,filter:e=>e.addedNodes.length>0,onBatch:e=>{for(let t=0;t<e.length;t++){let i=e[t];for(let s=0;s<i.addedNodes.length;s++){let a=i.addedNodes[s];a.nodeType===1&&this.cleanHeaderPromos(a)}}}}),this.observer&&this.registerObserver(this.observer))}restoreSuppressedElements(){if(typeof document>"u")return;let e=document.querySelectorAll(`.${g}`);for(let t=0;t<e.length;t++)e[t].classList.remove(g)}};var P=class extends d{constructor(){super(l.BACKGROUND_ACTIVITY,"Background Activity Optimization"),this.visibilityHandler=null}async onEnable(e){this.setupVisibilityListener(),document.hidden&&this.handleTabHidden()}async onDisable(){this.removeCSS(),this.handleTabVisible()}setupVisibilityListener(){this.visibilityHandler=()=>{this.enabled&&(document.hidden?this.handleTabHidden():this.handleTabVisible())},this.registerListener(document,"visibilitychange",this.visibilityHandler)}handleTabHidden(){if(this.options.throttleWhenHidden===!1)return;if(this.injectCSS(`
+    `;this.injectCSS(e)}cleanHeaderPromos(e=document){if(!e||!e.querySelectorAll)return;let t=e.querySelectorAll('a, button, [role="button"], [role="link"]');for(let i=0;i<t.length;i++){let r=t[i],n=(r.textContent||"").trim().toLowerCase(),a=(r.getAttribute("href")||"").toLowerCase();if(n.includes("get coins")||n.includes("get app")||a.includes("/coin")||a.includes("/download")||r.getAttribute("data-e2e")&&(r.getAttribute("data-e2e").includes("coin")||r.getAttribute("data-e2e").includes("download"))){r.classList.add(g),r.parentElement&&r.parentElement.children.length===1&&r.parentElement.classList.add(g);let c=r.nextElementSibling;if(c&&(c.tagName==="SPAN"||c.tagName==="DIV"||c.matches('span, div[class*="Divider"], div[class*="Splitter"], div[class*="Line"]'))){let p=(c.textContent||"").trim();(!p||p==="|"||c.offsetWidth<=2)&&c.classList.add(g)}}}}setupCleanupObserver(){this.observer||(this.observer=h({target:document.body,config:{childList:!0,subtree:!0},debounceMs:80,filter:e=>e.addedNodes.length>0,onBatch:e=>{for(let t=0;t<e.length;t++){let i=e[t];for(let r=0;r<i.addedNodes.length;r++){let n=i.addedNodes[r];n.nodeType===1&&this.cleanHeaderPromos(n)}}}}),this.observer&&this.registerObserver(this.observer))}restoreSuppressedElements(){if(typeof document>"u")return;let e=document.querySelectorAll(`.${g}`);for(let t=0;t<e.length;t++)e[t].classList.remove(g)}};var R=class extends d{constructor(){super(l.BACKGROUND_ACTIVITY,"Background Activity Optimization"),this.visibilityHandler=null}async onEnable(e){this.setupVisibilityListener(),document.hidden&&this.handleTabHidden()}async onDisable(){this.removeCSS(),this.handleTabVisible()}setupVisibilityListener(){this.visibilityHandler=()=>{this.enabled&&(document.hidden?this.handleTabHidden():this.handleTabVisible())},this.registerListener(document,"visibilitychange",this.visibilityHandler)}handleTabHidden(){if(this.options.throttleWhenHidden===!1)return;if(this.injectCSS(`
       * {
         animation-play-state: paused !important;
       }
-    `),this.options.pauseMediaOnHidden){let t=document.querySelectorAll("video");for(let i=0;i<t.length;i++){let s=t[i];!s.paused&&!s.ended&&(s.dataset.itzBgPaused="true",s.pause())}}}handleTabVisible(){if(this.removeCSS(),this.options.pauseMediaOnHidden){let e=document.querySelectorAll('video[data-itz-bg-paused="true"]');for(let t=0;t<e.length;t++){let i=e[t];delete i.dataset.itzBgPaused,i.play().catch(()=>{})}}}};var B=class extends d{constructor(e){super(l.DIAGNOSTICS,"Performance Diagnostics"),this.lifecycleManager=e,this.startTime=Date.now()}async onEnable(e){}async onDisable(){}collectSnapshot(){let e=typeof document<"u"?document.getElementsByTagName("*").length:0,t=typeof performance<"u"&&performance.memory?{usedHeapMB:(performance.memory.usedJSHeapSize/(1024*1024)).toFixed(2),totalHeapMB:(performance.memory.totalJSHeapSize/(1024*1024)).toFixed(2),heapLimitMB:(performance.memory.jsHeapSizeLimit/(1024*1024)).toFixed(2)}:null,i=null;if(typeof performance<"u"&&performance.getEntriesByType){let o=performance.getEntriesByType("paint");if(o&&o.length>0){i={};for(let c of o)i[c.name]=`${Math.round(c.startTime)}ms`}}let s=this.lifecycleManager?this.lifecycleManager.getDiagnosticsSummary():{},a=0,n=0;for(let o of Object.values(s))a+=o.activeObservers||0,n+=o.activeListeners||0;return{timestamp:new Date().toISOString(),url:typeof window<"u"?window.location.pathname:"",dom:{totalNodes:e,status:e>3e3?"High (>3000 nodes)":e>1500?"Moderate":"Optimal"},memory:t,paintMilestones:i,optimizerStats:{totalActiveObservers:a,totalActiveListeners:n,modules:s}}}};async function re(){let r=new A;r.register(new T),r.register(new N),r.register(new C),r.register(new x),r.register(new z),r.register(new R),r.register(new _),r.register(new k),r.register(new P);let e=new B(r);r.register(e),Q(),Z(i=>{r.notifyNavigation(i)});let t=await ie();await r.initAll(t),se(i=>{r.syncSettings(i)}),typeof chrome<"u"&&chrome.runtime&&chrome.runtime.onMessage&&chrome.runtime.onMessage.addListener((i,s,a)=>{if(!i||!i.type)return!1;if(i.type===q.GET_DIAGNOSTICS){let n=e.collectSnapshot();return a({success:!0,diagnostics:n}),!0}return i.type===q.SETTINGS_UPDATED?(r.syncSettings(i.settings),a({success:!0}),!0):!1}),console.log("%c itzTikTok Optimizer %c Active & Performance Engine Running %c https://itzcrih.it ","background: #e6b422; color: #090b0e; font-weight: bold; padding: 2px 6px; border-radius: 3px 0 0 3px;","background: #121720; color: #eef2ff; padding: 2px 6px;","background: #090b0e; color: #8292a8; font-size: 10px; padding: 2px 6px; border-radius: 0 3px 3px 0;")}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",re):re();})();
+    `),this.options.pauseMediaOnHidden){let t=document.querySelectorAll("video");for(let i=0;i<t.length;i++){let r=t[i];!r.paused&&!r.ended&&(r.dataset.itzBgPaused="true",r.pause())}}}handleTabVisible(){if(this.removeCSS(),this.options.pauseMediaOnHidden){let e=document.querySelectorAll('video[data-itz-bg-paused="true"]');for(let t=0;t<e.length;t++){let i=e[t];delete i.dataset.itzBgPaused,i.play().catch(()=>{})}}}};var U=class extends d{constructor(e){super(l.DIAGNOSTICS,"Performance Diagnostics"),this.lifecycleManager=e,this.startTime=Date.now()}async onEnable(e){}async onDisable(){}collectSnapshot(){let e=typeof document<"u"?document.getElementsByTagName("*").length:0,t=typeof performance<"u"&&performance.memory?{usedHeapMB:(performance.memory.usedJSHeapSize/(1024*1024)).toFixed(2),totalHeapMB:(performance.memory.totalJSHeapSize/(1024*1024)).toFixed(2),heapLimitMB:(performance.memory.jsHeapSizeLimit/(1024*1024)).toFixed(2)}:null,i=null;if(typeof performance<"u"&&performance.getEntriesByType){let o=performance.getEntriesByType("paint");if(o&&o.length>0){i={};for(let c of o)i[c.name]=`${Math.round(c.startTime)}ms`}}let r=this.lifecycleManager?this.lifecycleManager.getDiagnosticsSummary():{},n=0,a=0;for(let o of Object.values(r))n+=o.activeObservers||0,a+=o.activeListeners||0;return{timestamp:new Date().toISOString(),url:typeof window<"u"?window.location.pathname:"",dom:{totalNodes:e,status:e>3e3?"High (>3000 nodes)":e>1500?"Moderate":"Optimal"},memory:t,paintMilestones:i,optimizerStats:{totalActiveObservers:n,totalActiveListeners:a,modules:r}}}};async function ie(){let s=new O;s.register(new T),s.register(new N),s.register(new C),s.register(new x),s.register(new z),s.register(new _),s.register(new P),s.register(new k),s.register(new R);let e=new U(s);s.register(e),Y(),K(i=>{s.notifyNavigation(i)});let t=await ee();await s.initAll(t),te(i=>{s.syncSettings(i)}),typeof chrome<"u"&&chrome.runtime&&chrome.runtime.onMessage&&chrome.runtime.onMessage.addListener((i,r,n)=>{if(!i||!i.type)return!1;if(i.type===G.GET_DIAGNOSTICS){let a=e.collectSnapshot();return n({success:!0,diagnostics:a}),!0}return i.type===G.SETTINGS_UPDATED?(s.syncSettings(i.settings),n({success:!0}),!0):!1}),console.log("%c itzTikTok Optimizer %c Active & Performance Engine Running %c https://itzcrih.it ","background: #e6b422; color: #090b0e; font-weight: bold; padding: 2px 6px; border-radius: 3px 0 0 3px;","background: #121720; color: #eef2ff; padding: 2px 6px;","background: #090b0e; color: #8292a8; font-size: 10px; padding: 2px 6px; border-radius: 0 3px 3px 0;")}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",ie):ie();})();

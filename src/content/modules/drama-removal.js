@@ -143,10 +143,15 @@ export class DramaRemovalModule extends BaseModule {
         padding-bottom: 0 !important;
       }
 
-      /* Pull Messages group directly below Friends */
+      /* Pull lower navigation group (Upload, Profile, Messages) directly below Friends */
+      div[data-e2e="side-nav"] ul:has(a[href*="/upload"]),
+      div[data-e2e="side-nav"] div:has(> a[href*="/upload"]),
+      div[data-e2e="side-nav"] ul:has(a[href*="/@"]),
       div[data-e2e="side-nav"] ul:has(a[href*="/messages"]),
       div[data-e2e="side-nav"] div:has(> a[href*="/messages"]),
       div[data-e2e="side-nav"] div:has(> div > a[href*="/messages"]),
+      div[class*="SideNav"] ul:has(a[href*="/upload"]),
+      div[class*="SideNav"] div:has(a[href*="/upload"]),
       div[class*="SideNav"] ul:has(a[href*="/messages"]),
       div[class*="SideNav"] div:has(a[href*="/messages"]) {
         margin-top: 4px !important;
@@ -242,19 +247,19 @@ export class DramaRemovalModule extends BaseModule {
   }
 
   /**
-   * Eliminates the void between upper navigation (Friends) and lower navigation (Messages)
+   * Eliminates the void between upper navigation (Friends) and lower navigation (Upload, Profile, Messages)
    */
   compactSidebarNavigation(root = document) {
     if (!root || !root.querySelectorAll) return;
 
-    const messagesLink = root.querySelector ? root.querySelector('a[href*="/messages"]') : null;
-    if (messagesLink) {
-      const messagesGroup = messagesLink.closest('ul, div[class*="NavSection"], div[class*="List"]');
-      if (messagesGroup && messagesGroup.style) {
-        messagesGroup.style.setProperty('margin-top', '4px', 'important');
-        messagesGroup.style.setProperty('padding-top', '0px', 'important');
+    const lowerLink = root.querySelector ? root.querySelector('a[href*="/upload"], a[href*="/@"], a[href*="/profile"], a[href*="/messages"]') : null;
+    if (lowerLink) {
+      const lowerGroup = lowerLink.closest('ul, div[class*="NavSection"], div[class*="List"]');
+      if (lowerGroup && lowerGroup.style) {
+        lowerGroup.style.setProperty('margin-top', '4px', 'important');
+        lowerGroup.style.setProperty('padding-top', '0px', 'important');
 
-        let prev = messagesGroup.previousElementSibling;
+        let prev = lowerGroup.previousElementSibling;
         while (prev) {
           const text = (prev.textContent || '').trim();
           if (!text || (prev.matches && prev.matches('hr, div[class*="Divider"], div[class*="Spacer"], div[class*="Line"]'))) {

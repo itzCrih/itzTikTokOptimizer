@@ -1,157 +1,221 @@
 /**
- * itzTikTok Optimizer - Direct Message & Group Chat Optimization Module
+ * itzTikTok Optimizer - Direct Message Eradication Module
  * 
- * Target Bottlenecks:
- * 1. Heavy DOM trees created by large conversation lists and active group chats.
- * 2. Continuous layout recalculations and forced reflows during chat scrolling.
- * 3. Eager background rendering of messaging components when user is not viewing messages.
- * 
- * Strategy:
- * - Apply browser-native CSS virtualization (content-visibility: auto) to conversation items.
- * - Enforce layout containment on conversation lists and chat message bubbles.
- * - Dormancy: Keep messaging DOM structures dormant when user is on feed/profile pages.
- * - Zero network blocking: Preserves unread counters, authentication, and normal message sending.
+ * Complete Direct Message Suppression:
+ * 1. Blocks all TikTok Direct Messaging / IM API requests at the network level.
+ * 2. Silences IM WebSockets so chat streams and group chat updates never reach the browser.
+ * 3. Hides the "Messages" navigation button from the sidebar.
+ * 4. Completely suppresses message panels, conversation drawers, and chat lists.
+ * 5. Prevents navigation to /messages (redirects to clean feed).
  */
 
 import { BaseModule } from '../lifecycle.js';
 import { MODULE_IDS, ROUTES } from '../../shared/constants.js';
-import { markElementOptimized, isElementOptimized, createBatchedObserver } from '../dom-utils.js';
+
+const IM_INTERCEPT_SCRIPT_ID = 'itz-intercept-messaging';
 
 export class MessagingModule extends BaseModule {
   constructor() {
     super(MODULE_IDS.MESSAGING, 'Messaging Optimization');
-    this.isChatRoute = false;
-    this.listObserver = null;
   }
 
   async onEnable(settings) {
+    if (this.isMessagesRoute()) {
+      window.location.replace('/');
+      return;
+    }
+
+    this.injectPageMessagingInterceptor();
     this.applyMessagingStyles();
-    this.updateRouteState(window.location.pathname.startsWith('/messages'));
   }
 
   async onDisable() {
     this.removeCSS();
-    if (this.listObserver) {
-      this.listObserver.disconnect();
-      this.listObserver = null;
-    }
+    this.removePageMessagingInterceptor();
   }
 
   onNavigate(routeInfo) {
     if (!this.enabled) return;
-    const isNowChat = routeInfo.route === ROUTES.MESSAGES || routeInfo.pathname.startsWith('/messages');
-    this.updateRouteState(isNowChat);
+    if (routeInfo.pathname && routeInfo.pathname.startsWith('/messages')) {
+      window.location.replace('/');
+    }
   }
 
-  updateRouteState(isChatRoute) {
-    this.isChatRoute = isChatRoute;
-    this.applyMessagingStyles();
+  isMessagesRoute() {
+    return typeof window !== 'undefined' && window.location.pathname.startsWith('/messages');
+  }
 
-    if (isChatRoute) {
-      this.attachScopedChatObserver();
-    } else {
-      if (this.listObserver) {
-        this.listObserver.disconnect();
-        this.listObserver = null;
-      }
+  injectPageMessagingInterceptor() {
+    if (typeof document === 'undefined') return;
+    if (document.getElementById(IM_INTERCEPT_SCRIPT_ID)) return;
+
+    const script = document.createElement('script');
+    script.id = IM_INTERCEPT_SCRIPT_ID;
+    script.setAttribute('data-itz-source', 'itzTikTokOptimizer');
+    script.textContent = `
+      (function() {
+        // 1. Intercept fetch for all Direct Messaging / IM / Chat endpoints
+        try {
+          var origFetch = window.fetch;
+          if (origFetch) {
+            window.fetch = function(...args) {
+              var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
+              var lowerUrl = (url || '').toLowerCase();
+
+              if (
+                lowerUrl.includes('/web/im/') ||
+                lowerUrl.includes('/api/v1/web/im/') ||
+                lowerUrl.includes('/v1/im/') ||
+                lowerUrl.includes('/api/im/') ||
+                lowerUrl.includes('/im/message/') ||
+                lowerUrl.includes('/im/conversation/') ||
+                lowerUrl.includes('/im/chat/') ||
+                lowerUrl.includes('/im/batch/') ||
+                lowerUrl.includes('/im/user/') ||
+                lowerUrl.includes('/im/sync/') ||
+                lowerUrl.includes('/message/list/') ||
+                lowerUrl.includes('/chat/list/')
+              ) {
+                return Promise.resolve(new Response(JSON.stringify({
+                  status_code: 0,
+                  status_msg: '',
+                  data: [],
+                  messages: [],
+                  conversations: [],
+                  user_list: [],
+                  has_more: false,
+                  next_cursor: 0
+                }), {
+                  status: 200,
+                  headers: { 'Content-Type': 'application/json' }
+                }));
+              }
+              return origFetch.apply(this, args);
+            };
+          }
+        } catch (e) {}
+
+        // 2. Intercept XMLHttpRequest for Direct Messaging / IM
+        try {
+          var origOpen = XMLHttpRequest.prototype.open;
+          XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+            this._itzImUrl = (typeof url === 'string' ? url : '').toLowerCase();
+            return origOpen.call(this, method, url, ...rest);
+          };
+
+          var origSend = XMLHttpRequest.prototype.send;
+          XMLHttpRequest.prototype.send = function(...args) {
+            if (this._itzImUrl && (
+              this._itzImUrl.includes('/web/im/') ||
+              this._itzImUrl.includes('/v1/im/') ||
+              this._itzImUrl.includes('/api/im/') ||
+              this._itzImUrl.includes('/im/message/') ||
+              this._itzImUrl.includes('/im/conversation/')
+            )) {
+              Object.defineProperty(this, 'readyState', { value: 4, configurable: true });
+              Object.defineProperty(this, 'status', { value: 200, configurable: true });
+              var emptyData = JSON.stringify({
+                status_code: 0,
+                data: [],
+                messages: [],
+                conversations: []
+              });
+              Object.defineProperty(this, 'responseText', { value: emptyData, configurable: true });
+              Object.defineProperty(this, 'response', { value: emptyData, configurable: true });
+              setTimeout(() => {
+                if (typeof this.onreadystatechange === 'function') this.onreadystatechange();
+                if (typeof this.onload === 'function') this.onload();
+              }, 0);
+              return;
+            }
+            return origSend.apply(this, args);
+          };
+        } catch (e) {}
+
+        // 3. Neuter WebSockets connecting to IM gateways
+        try {
+          var OriginalWS = window.WebSocket;
+          if (OriginalWS) {
+            window.WebSocket = function(url, protocols) {
+              var lowerUrl = (typeof url === 'string' ? url : '').toLowerCase();
+              if (lowerUrl.includes('im') || lowerUrl.includes('frontier')) {
+                var mockSocket = {
+                  url: url,
+                  readyState: 3, // CLOSED
+                  bufferedAmount: 0,
+                  send: function() {},
+                  close: function() {},
+                  addEventListener: function() {},
+                  removeEventListener: function() {},
+                  dispatchEvent: function() { return false; },
+                  onopen: null,
+                  onmessage: null,
+                  onerror: null,
+                  onclose: null
+                };
+                return mockSocket;
+              }
+              return new OriginalWS(url, protocols);
+            };
+            window.WebSocket.prototype = OriginalWS.prototype;
+            window.WebSocket.CONNECTING = 0;
+            window.WebSocket.OPEN = 1;
+            window.WebSocket.CLOSING = 2;
+            window.WebSocket.CLOSED = 3;
+          }
+        } catch (e) {}
+      })();
+    `;
+
+    const target = document.head || document.documentElement;
+    if (target) {
+      target.appendChild(script);
+    }
+  }
+
+  removePageMessagingInterceptor() {
+    if (typeof document === 'undefined') return;
+    const script = document.getElementById(IM_INTERCEPT_SCRIPT_ID);
+    if (script && script.parentNode) {
+      script.parentNode.removeChild(script);
     }
   }
 
   applyMessagingStyles() {
     if (!this.enabled) return;
 
-    // CSS optimizations targeted at TikTok's messaging architecture:
-    // 1. Virtualization of conversation list items
-    // 2. Layout containment on chat message threads
-    // 3. Dormancy containment when off-route
-    let css = `
-      /* 1. Conversation List Item Virtualization */
-      /* Blazing-fast scrolling for 100+ conversations & large group chats */
-      div[data-e2e="chat-item"],
-      div[class*="ConversationItem"],
-      div[class*="ChatListItem"],
-      div[class*="chat-item"] {
-        content-visibility: auto;
-        contain-intrinsic-size: 72px;
-        contain: layout style;
+    const css = `
+      /* 1. Hide Messages button from left sidebar navigation */
+      a[href*="/messages"],
+      li:has(a[href*="/messages"]),
+      div:has(> a[href*="/messages"]),
+      div:has(> div > a[href*="/messages"]),
+      div[data-e2e*="messages"] {
+        display: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        border: none !important;
+        overflow: hidden !important;
       }
 
-      /* 2. Message Bubbles layout containment */
-      div[data-e2e="message-item"],
-      div[class*="MessageItem"],
-      div[class*="ChatMessage"] {
-        contain: layout style;
-      }
-
-      /* 3. Conversation avatar and status badge containment */
-      div[data-e2e="chat-avatar"],
-      div[class*="AvatarContainer"] {
-        contain: paint layout;
+      /* 2. Completely destroy all messaging panels, chat lists, and message drawers */
+      div[data-e2e="message-panel"],
+      div[data-e2e="chat-list"],
+      div[data-e2e="message-list"],
+      div[class*="MessagePanel"],
+      div[class*="ChatList"],
+      div[class*="ConversationList"],
+      div[class*="ChatDrawer"],
+      div[class*="DivConversationList"] {
+        display: none !important;
+        height: 0 !important;
+        width: 0 !important;
+        overflow: hidden !important;
       }
     `;
 
-    // When the user is NOT on /messages, keep any background messaging popovers/drawers dormant
-    if (!this.isChatRoute && this.options.deferInboxInit !== false) {
-      css += `
-        /* Background messaging drawer dormancy */
-        div[data-e2e="message-panel"]:not([data-active="true"]),
-        div[class*="MessagePanel"]:not([class*="active"]),
-        div[class*="ChatDrawerContainer"]:not([class*="open"]) {
-          content-visibility: hidden;
-          contain: strict;
-        }
-      `;
-    }
-
     this.injectCSS(css);
-  }
-
-  attachScopedChatObserver() {
-    if (this.listObserver) return;
-
-    // Look for chat list container
-    const chatContainer = document.querySelector(
-      'div[data-e2e="chat-list"], div[class*="ChatList"], div[class*="ConversationList"]'
-    );
-
-    if (chatContainer) {
-      this.listObserver = createBatchedObserver({
-        target: chatContainer,
-        config: { childList: true, subtree: false },
-        debounceMs: 100,
-        onBatch: (mutations) => {
-          // Verify items are tagged to avoid reflow thrashing
-          const items = chatContainer.querySelectorAll('div[data-e2e="chat-item"]');
-          for (let i = 0; i < items.length; i++) {
-            const item = items[i];
-            if (!isElementOptimized(item, 'msg-opt')) {
-              markElementOptimized(item, 'msg-opt');
-            }
-          }
-        }
-      });
-      if (this.listObserver) {
-        this.registerObserver(this.listObserver);
-      }
-    } else {
-      // If container not yet mounted, wait for it gently without aggressive polling
-      const bodyObserver = createBatchedObserver({
-        target: document.body,
-        config: { childList: true, subtree: true },
-        debounceMs: 200,
-        filter: (mut) => mut.addedNodes.length > 0,
-        onBatch: () => {
-          if (!this.isChatRoute || this.listObserver) return;
-          const found = document.querySelector('div[data-e2e="chat-list"], div[class*="ChatList"]');
-          if (found) {
-            bodyObserver.disconnect();
-            this.attachScopedChatObserver();
-          }
-        }
-      });
-      if (bodyObserver) {
-        this.registerObserver(bodyObserver);
-      }
-    }
   }
 }

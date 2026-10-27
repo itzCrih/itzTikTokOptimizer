@@ -4,28 +4,32 @@ import { MessagingModule } from '../src/content/modules/messaging.js';
 import { MockDocument, MockElement } from './setup.js';
 import { ROUTES } from '../src/shared/constants.js';
 
-test('MessagingModule applies CSS virtualization and containment', async () => {
+test('MessagingModule suppresses DMs, hides sidebar button and redirects /messages', async () => {
   const mockDoc = new MockDocument();
   globalThis.document = mockDoc;
+  let replacedUrl = null;
   globalThis.window = {
-    location: { pathname: '/messages' }
+    location: {
+      pathname: '/foryou',
+      replace: (u) => { replacedUrl = u; }
+    }
   };
 
   const mod = new MessagingModule();
-  await mod.init({ messagingOptions: { virtualizeList: true, deferInboxInit: true } });
-  await mod.enable({ messagingOptions: { virtualizeList: true, deferInboxInit: true } });
+  await mod.init({});
+  await mod.enable({});
 
   assert.equal(mod.enabled, true);
 
-  // Check injected stylesheet exists and contains virtualization rules
+  // Check injected stylesheet exists and contains rules to hide Messages
   const styleEl = mockDoc.getElementById(`itz-opt-style-${mod.styleId}`);
   assert.ok(styleEl, 'Messaging stylesheet must be injected');
-  assert.ok(styleEl.textContent.includes('content-visibility: auto'), 'Must contain content-visibility virtualization');
-  assert.ok(styleEl.textContent.includes('data-e2e="chat-item"'), 'Must target chat items');
+  assert.ok(styleEl.textContent.includes('a[href*="/messages"]'), 'Must hide Messages navigation link');
+  assert.ok(styleEl.textContent.includes('div[data-e2e="message-panel"]'), 'Must hide message panels');
 
-  // Navigate away to feed
-  mod.onNavigate({ route: ROUTES.FEED, pathname: '/' });
-  assert.ok(styleEl.textContent.includes('content-visibility: hidden'), 'Must apply dormancy when viewing feed');
+  // Test redirect if navigating to /messages
+  mod.onNavigate({ route: ROUTES.MESSAGES, pathname: '/messages' });
+  assert.equal(replacedUrl, '/');
 
   // Disable module
   await mod.disable();
