@@ -40,7 +40,7 @@ test('AnimationsModule disables spinning vinyl and engagement bursts while safeg
   assert.equal(mod.enabled, false);
 });
 
-test('InterfaceCleanupModule hides download app banner and QR code flyouts', async () => {
+test('InterfaceCleanupModule hides download app banner, QR code flyouts and header promos', async () => {
   const mockDoc = new MockDocument();
   globalThis.document = mockDoc;
 
@@ -51,6 +51,25 @@ test('InterfaceCleanupModule hides download app banner and QR code flyouts', asy
   const styleEl = mockDoc.getElementById(`itz-opt-style-${mod.styleId}`);
   assert.ok(styleEl.textContent.includes('download-guide-container'));
   assert.ok(styleEl.textContent.includes('qr-code-container'));
+  assert.ok(styleEl.textContent.includes('header a[href*="/coin"]'), 'Must include Get Coins cleanup');
+
+  // Test header promo cleanup
+  const headerRight = new MockElement('div', { class: 'HeaderRight' });
+  const getCoinsBtn = new MockElement('a', { href: '/coin' });
+  getCoinsBtn.textContent = 'Get Coins';
+  const getAppBtn = new MockElement('a', { href: '/download' });
+  getAppBtn.textContent = 'Get App';
+  const profileBtn = new MockElement('a', { href: '/@user' });
+  profileBtn.textContent = 'Profile';
+
+  headerRight.appendChild(getCoinsBtn);
+  headerRight.appendChild(getAppBtn);
+  headerRight.appendChild(profileBtn);
+
+  mod.cleanHeaderPromos(headerRight);
+  assert.equal(getCoinsBtn.classList.has('itz-hidden-header-promo'), true);
+  assert.equal(getAppBtn.classList.has('itz-hidden-header-promo'), true);
+  assert.equal(profileBtn.classList.has('itz-hidden-header-promo'), false, 'Profile must NOT be hidden');
 
   await mod.disable();
   assert.equal(mod.enabled, false);

@@ -90,7 +90,7 @@ const buildConfigs = [
 ];
 
 async function runBuild() {
-  console.log('⚡ Building itzTikTok Optimizer for Chrome Manifest V3...');
+  console.log('Building itzTikTok Optimizer for Chrome Manifest V3...');
   try {
     for (const config of buildConfigs) {
       if (isWatch) {
@@ -100,9 +100,9 @@ async function runBuild() {
         await esbuild.build(config);
       }
     }
-    console.log('✅ Extension build completed successfully! Artifacts placed in /dist.');
+    console.log('Extension build completed successfully. Artifacts placed in /dist.');
   } catch (err) {
-    console.error('❌ Build failed:', err);
+    console.error('Build failed:', err);
     process.exit(1);
   }
 }

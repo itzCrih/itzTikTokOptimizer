@@ -35,6 +35,7 @@ export class DramaRemovalModule extends BaseModule {
 
     this.applyDramaStyles();
     this.suppressSidebarButton();
+    this.compactSidebarNavigation();
     this.scanAndSuppressDramaElements();
     this.setupDramaObserver();
   }
@@ -57,6 +58,7 @@ export class DramaRemovalModule extends BaseModule {
     }
 
     this.suppressSidebarButton();
+    this.compactSidebarNavigation();
     this.scanAndSuppressDramaElements();
   }
 
@@ -116,7 +118,7 @@ export class DramaRemovalModule extends BaseModule {
         overflow: hidden !important;
       }
 
-      /* 2. Seamless scaling & layout organization of surviving sidebar buttons */
+      /* 2. Seamless scaling, elimination of void & layout organization */
       /* Normalizes flex spacing so no empty hole or "missed button" gap exists */
       nav ul,
       div[data-e2e="side-nav"] ul,
@@ -126,6 +128,39 @@ export class DramaRemovalModule extends BaseModule {
         display: flex !important;
         flex-direction: column !important;
         row-gap: 4px !important;
+      }
+
+      /* Eliminate void between upper nav (Friends) and lower nav (Messages) */
+      div[data-e2e="side-nav"] > div,
+      div[class*="SideNav"] > div,
+      div[class*="MainNav"] > div,
+      div[class*="NavWrapper"] > div,
+      div[data-e2e="side-nav"] ul,
+      div[class*="SideNav"] ul {
+        min-height: 0 !important;
+        flex-grow: 0 !important;
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
+      }
+
+      /* Pull Messages group directly below Friends */
+      div[data-e2e="side-nav"] ul:has(a[href*="/messages"]),
+      div[data-e2e="side-nav"] div:has(> a[href*="/messages"]),
+      div[data-e2e="side-nav"] div:has(> div > a[href*="/messages"]),
+      div[class*="SideNav"] ul:has(a[href*="/messages"]),
+      div[class*="SideNav"] div:has(a[href*="/messages"]) {
+        margin-top: 4px !important;
+        padding-top: 0 !important;
+      }
+
+      /* Collapse large spacers between upper and lower nav */
+      div[data-e2e="side-nav"] div[class*="Spacer"],
+      div[data-e2e="side-nav"] div[class*="Divider"],
+      div[class*="SideNav"] div[class*="Spacer"],
+      div[class*="SideNav"] div[class*="Divider"] {
+        height: 1px !important;
+        min-height: 0 !important;
+        margin: 4px 0 !important;
       }
 
       /* Ensure surviving navigation items (For You, Explore, Following, Friends) scale cleanly */
@@ -206,6 +241,51 @@ export class DramaRemovalModule extends BaseModule {
     }
   }
 
+  /**
+   * Eliminates the void between upper navigation (Friends) and lower navigation (Messages)
+   */
+  compactSidebarNavigation(root = document) {
+    if (!root || !root.querySelectorAll) return;
+
+    const messagesLink = root.querySelector ? root.querySelector('a[href*="/messages"]') : null;
+    if (messagesLink) {
+      const messagesGroup = messagesLink.closest('ul, div[class*="NavSection"], div[class*="List"]');
+      if (messagesGroup && messagesGroup.style) {
+        messagesGroup.style.setProperty('margin-top', '4px', 'important');
+        messagesGroup.style.setProperty('padding-top', '0px', 'important');
+
+        let prev = messagesGroup.previousElementSibling;
+        while (prev) {
+          const text = (prev.textContent || '').trim();
+          if (!text || (prev.matches && prev.matches('hr, div[class*="Divider"], div[class*="Spacer"], div[class*="Line"]'))) {
+            if (prev.style) {
+              prev.style.setProperty('margin', '2px 0', 'important');
+              prev.style.setProperty('height', '1px', 'important');
+              prev.style.setProperty('min-height', '0px', 'important');
+            }
+          } else {
+            if (prev.style) {
+              prev.style.setProperty('min-height', '0px', 'important');
+              prev.style.setProperty('margin-bottom', '2px', 'important');
+              prev.style.setProperty('padding-bottom', '0px', 'important');
+            }
+            break;
+          }
+          prev = prev.previousElementSibling;
+        }
+      }
+    }
+
+    const friendsLink = root.querySelector ? root.querySelector('a[href*="/friends"]') : null;
+    if (friendsLink) {
+      const friendsGroup = friendsLink.closest('ul, div[class*="NavSection"], div[class*="List"]');
+      if (friendsGroup && friendsGroup.style) {
+        friendsGroup.style.setProperty('min-height', '0px', 'important');
+        friendsGroup.style.setProperty('margin-bottom', '2px', 'important');
+      }
+    }
+  }
+
   isDramaElement(node) {
     if (!node || node.nodeType !== 1) return false;
 
@@ -254,6 +334,7 @@ export class DramaRemovalModule extends BaseModule {
             const added = mut.addedNodes[j];
             if (added.nodeType === 1) {
               this.suppressSidebarButton(added);
+              this.compactSidebarNavigation(added);
               this.scanAndSuppressDramaElements(added);
             }
           }

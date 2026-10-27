@@ -28,8 +28,6 @@ const tabModules = document.getElementById('tabModules');
 const tabDiagnostics = document.getElementById('tabDiagnostics');
 const modulesView = document.getElementById('modulesView');
 const diagnosticsView = document.getElementById('diagnosticsView');
-const pageStatusBadge = document.getElementById('pageStatusBadge');
-const statusLabelText = document.getElementById('statusLabelText');
 
 // Diagnostics elements
 const diagDomNodes = document.getElementById('diagDomNodes');
@@ -46,7 +44,6 @@ const btnCopyDiagnostics = document.getElementById('btnCopyDiagnostics');
 async function init() {
   currentSettings = await getSettings();
   renderSettings(currentSettings);
-  checkActivePage();
   setupEventListeners();
 
   // Listen for storage changes from background or other tabs
@@ -54,39 +51,6 @@ async function init() {
     currentSettings = newSettings;
     renderSettings(newSettings);
   });
-}
-
-/**
- * Checks whether current active tab is TikTok
- */
-async function checkActivePage() {
-  if (typeof chrome === 'undefined' || !chrome.tabs || !chrome.tabs.query) {
-    updatePageStatus(false, 'Local Test');
-    return;
-  }
-
-  try {
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tabs && tabs[0] && tabs[0].url) {
-      const isTikTok = tabs[0].url.includes('tiktok.com');
-      if (isTikTok) {
-        updatePageStatus(true, 'TikTok Active');
-      } else {
-        updatePageStatus(false, 'Inactive (Not TikTok)');
-      }
-    }
-  } catch (e) {
-    updatePageStatus(false, 'Ready');
-  }
-}
-
-function updatePageStatus(isActive, label) {
-  if (isActive) {
-    pageStatusBadge.className = 'page-status active';
-  } else {
-    pageStatusBadge.className = 'page-status inactive';
-  }
-  statusLabelText.textContent = label;
 }
 
 /**
