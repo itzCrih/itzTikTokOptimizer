@@ -4,7 +4,7 @@
  */
 
 export const EXTENSION_NAME = 'itzTikTok Optimizer';
-export const EXTENSION_VERSION = '1.0.0';
+export const EXTENSION_VERSION = '1.0.1';
 export const AUTHOR_URL = 'https://itzcrih.it';
 
 export const STORAGE_KEY_SETTINGS = 'itz_tiktok_optimizer_settings';
