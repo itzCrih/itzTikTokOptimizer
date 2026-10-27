@@ -112,7 +112,7 @@ export class LiveRemovalModule extends BaseModule {
     if (this.observer) return;
 
     this.observer = createBatchedObserver({
-      target: document.body,
+      target: typeof document !== 'undefined' ? (document.body || document.documentElement || document) : null,
       config: { childList: true, subtree: true },
       debounceMs: 80,
       filter: (mut) => mut.addedNodes.length > 0,

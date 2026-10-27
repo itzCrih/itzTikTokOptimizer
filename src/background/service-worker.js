@@ -28,21 +28,23 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
 // Update badge or title when tabs change
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && tab.url) {
-    if (tab.url.includes('tiktok.com')) {
-      chrome.action.setBadgeText({ tabId, text: 'ON' });
-      chrome.action.setBadgeBackgroundColor({ tabId, color: '#e6b422' });
-      chrome.action.setTitle({
-        tabId,
-        title: 'itzTikTok Optimizer: Active on this page'
-      });
-    } else {
-      chrome.action.setBadgeText({ tabId, text: '' });
-      chrome.action.setTitle({
-        tabId,
-        title: 'itzTikTok Optimizer: Inactive (Open TikTok to optimize)'
-      });
-    }
+  if (changeInfo.status === 'complete' && tab && tab.url) {
+    try {
+      if (tab.url.includes('tiktok.com')) {
+        chrome.action.setBadgeText({ tabId, text: 'ON' }).catch(() => {});
+        chrome.action.setBadgeBackgroundColor({ tabId, color: '#e6b422' }).catch(() => {});
+        chrome.action.setTitle({
+          tabId,
+          title: 'itzTikTok Optimizer: Active on this page'
+        }).catch(() => {});
+      } else {
+        chrome.action.setBadgeText({ tabId, text: '' }).catch(() => {});
+        chrome.action.setTitle({
+          tabId,
+          title: 'itzTikTok Optimizer: Inactive (Open TikTok to optimize)'
+        }).catch(() => {});
+      }
+    } catch (e) {}
   }
 });
 

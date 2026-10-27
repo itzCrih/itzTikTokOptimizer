@@ -13,10 +13,10 @@
 import { BaseModule } from '../lifecycle.js';
 import { MODULE_IDS } from '../../shared/constants.js';
 import { createBatchedObserver } from '../dom-utils.js';
+import { cleanTitle, isDirtyTitle } from '../../shared/sanitizer.js';
 
 const TOAST_HIDE_CLASS = 'itz-hidden-notification-toast';
 const BADGE_HIDE_CLASS = 'itz-hidden-badge';
-const INTERCEPT_SCRIPT_ID = 'itz-intercept-notifications';
 
 export class NotificationsModule extends BaseModule {
   constructor() {
@@ -25,7 +25,7 @@ export class NotificationsModule extends BaseModule {
   }
 
   async onEnable(settings) {
-    this.injectPageNotificationInterceptor();
+    this.syncPageInterceptor(true);
     this.applyNotificationStyles();
     this.eradicateNotificationToasts();
     this.eradicateBadges();
@@ -39,150 +39,27 @@ export class NotificationsModule extends BaseModule {
       this.observer.disconnect();
       this.observer = null;
     }
-    this.removePageNotificationInterceptor();
+    this.syncPageInterceptor(false);
     this.restoreSuppressedElements();
   }
 
-  /**
-   * Injects script into page context to intercept Web Notifications API, notice polling, and title
-   */
-  injectPageNotificationInterceptor() {
-    if (typeof document === 'undefined') return;
-    if (document.getElementById(INTERCEPT_SCRIPT_ID)) return;
-
-    const script = document.createElement('script');
-    script.id = INTERCEPT_SCRIPT_ID;
-    script.setAttribute('data-itz-source', 'itzTikTokOptimizer');
-    script.textContent = `
-      (function() {
-        // 1. Neuter Web Notifications API
-        try {
-          if (window.Notification) {
-            Object.defineProperty(window.Notification, 'permission', {
-              get: function() { return 'denied'; },
-              set: function() {},
-              configurable: true
-            });
-            window.Notification.requestPermission = function() {
-              return Promise.resolve('denied');
-            };
-          }
-          if (window.ServiceWorkerRegistration && window.ServiceWorkerRegistration.prototype) {
-            window.ServiceWorkerRegistration.prototype.showNotification = function() {
-              return Promise.resolve();
-            };
-          }
-        } catch (e) {}
-
-        // 2. Title Sanitizer - Strips [99+], (99+), [1] from browser tab title
-        try {
-          var cleanTitle = function(t) {
-            if (!t || typeof t !== 'string') return t;
-            return t.replace(/^\\[\\d+\\+?\\]\\s*/, '').replace(/^\\(\\d+\\+?\\)\\s*/, '');
-          };
-          if (document.title) {
-            document.title = cleanTitle(document.title);
-          }
-          var titleDesc = Object.getOwnPropertyDescriptor(Document.prototype, 'title') ||
-                          Object.getOwnPropertyDescriptor(HTMLDocument.prototype, 'title');
-          if (titleDesc && titleDesc.set) {
-            var origSet = titleDesc.set;
-            Object.defineProperty(document, 'title', {
-              set: function(val) {
-                origSet.call(this, cleanTitle(val));
-              },
-              get: function() {
-                return titleDesc.get.call(this);
-              },
-              configurable: true
-            });
-          }
-        } catch (e) {}
-
-        // 3. Intercept fetch notice polling
-        try {
-          var originalFetch = window.fetch;
-          if (originalFetch) {
-            window.fetch = function(...args) {
-              var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
-              var lowerUrl = (url || '').toLowerCase();
-              if (
-                lowerUrl.includes('/api/notice/') ||
-                lowerUrl.includes('/api/v1/notice/') ||
-                lowerUrl.includes('/notice/multi/') ||
-                lowerUrl.includes('/notice/count/') ||
-                lowerUrl.includes('/passport/web/account/notice/') ||
-                lowerUrl.includes('/notification/')
-              ) {
-                return Promise.resolve(new Response(JSON.stringify({
-                  status_code: 0,
-                  status_msg: '',
-                  notice_count: 0,
-                  data: [],
-                  data_count: 0,
-                  has_more: false,
-                  user_list: [],
-                  total: 0
-                }), {
-                  status: 200,
-                  headers: { 'Content-Type': 'application/json' }
-                }));
-              }
-              return originalFetch.apply(this, args);
-            };
-          }
-        } catch (e) {}
-
-        // 4. Intercept XMLHttpRequest notice polling
-        try {
-          var originalOpen = XMLHttpRequest.prototype.open;
-          XMLHttpRequest.prototype.open = function(method, url, ...rest) {
-            this._itzUrl = (typeof url === 'string' ? url : '').toLowerCase();
-            return originalOpen.call(this, method, url, ...rest);
-          };
-
-          var originalSend = XMLHttpRequest.prototype.send;
-          XMLHttpRequest.prototype.send = function(...args) {
-            if (this._itzUrl && (
-              this._itzUrl.includes('/api/notice/') ||
-              this._itzUrl.includes('/notice/multi/') ||
-              this._itzUrl.includes('/notice/count/') ||
-              this._itzUrl.includes('/notification/')
-            )) {
-              Object.defineProperty(this, 'readyState', { value: 4, configurable: true });
-              Object.defineProperty(this, 'status', { value: 200, configurable: true });
-              var emptyData = JSON.stringify({ status_code: 0, notice_count: 0, data: [], data_count: 0 });
-              Object.defineProperty(this, 'responseText', { value: emptyData, configurable: true });
-              Object.defineProperty(this, 'response', { value: emptyData, configurable: true });
-              setTimeout(() => {
-                if (typeof this.onreadystatechange === 'function') this.onreadystatechange();
-                if (typeof this.onload === 'function') this.onload();
-              }, 0);
-              return;
-            }
-            return originalSend.apply(this, args);
-          };
-        } catch (e) {}
-      })();
-    `;
-
-    const target = document.head || document.documentElement;
-    if (target) {
-      target.appendChild(script);
-    }
-  }
-
-  removePageNotificationInterceptor() {
-    if (typeof document === 'undefined') return;
-    const script = document.getElementById(INTERCEPT_SCRIPT_ID);
-    if (script && script.parentNode) {
-      script.parentNode.removeChild(script);
+  syncPageInterceptor(blocked) {
+    if (typeof window !== 'undefined' && typeof window.postMessage === 'function') {
+      window.postMessage({
+        source: 'itz-optimizer-content',
+        notificationsBlocked: blocked
+      }, '*');
     }
   }
 
   sanitizeDocumentTitle() {
     if (typeof document === 'undefined' || !document.title) return;
-    document.title = document.title.replace(/^\[\d+\+?\]\s*/, '').replace(/^\(\d+\+?\)\s*/, '');
+    if (isDirtyTitle(document.title)) {
+      const cleaned = cleanTitle(document.title);
+      if (document.title !== cleaned) {
+        document.title = cleaned;
+      }
+    }
   }
 
   applyNotificationStyles() {
@@ -342,7 +219,7 @@ export class NotificationsModule extends BaseModule {
     if (this.observer) return;
 
     this.observer = createBatchedObserver({
-      target: document.body,
+      target: typeof document !== 'undefined' ? (document.body || document.documentElement || document) : null,
       config: { childList: true, subtree: true },
       debounceMs: 50,
       filter: (mut) => mut.addedNodes.length > 0,

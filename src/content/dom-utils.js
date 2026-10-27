@@ -74,7 +74,7 @@ export function isElementOptimized(el, moduleTag) {
 export function createBatchedObserver(options) {
   if (typeof MutationObserver === 'undefined') return null;
   const {
-    target = typeof document !== 'undefined' ? document.body : null,
+    target = typeof document !== 'undefined' ? (document.body || document.documentElement || document) : null,
     config = { childList: true, subtree: true },
     filter = null,
     onBatch = () => {},

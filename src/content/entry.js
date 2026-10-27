@@ -20,8 +20,11 @@ import { InterfaceCleanupModule } from './modules/interface-cleanup.js';
 import { BackgroundActivityModule } from './modules/background-activity.js';
 import { DiagnosticsModule } from './modules/diagnostics.js';
 
+let activeLifecycle = null;
+
 async function bootstrap() {
   const lifecycle = new LifecycleManager();
+  activeLifecycle = lifecycle;
 
   // Register all 10 optimization modules
   lifecycle.register(new MessagingModule());
@@ -81,9 +84,18 @@ async function bootstrap() {
   );
 }
 
-// Start execution once document is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', bootstrap);
-} else {
-  bootstrap();
+// Start execution immediately at document_start for instant style injection and zero-delay observer setup
+bootstrap();
+
+// Secondary pass once DOM is fully parsed
+if (typeof document !== 'undefined' && document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    if (activeLifecycle && activeLifecycle.isMasterActive) {
+      const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+      activeLifecycle.notifyNavigation({
+        route: pathname.startsWith('/messages') ? 'messages' : 'feed',
+        pathname
+      });
+    }
+  });
 }

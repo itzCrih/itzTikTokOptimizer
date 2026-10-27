@@ -39,12 +39,13 @@ test('Manifest V3 Compliance & Integrity', () => {
 
   // 6. Content Script verification
   assert.ok(manifest.content_scripts && manifest.content_scripts.length > 0);
-  const cs = manifest.content_scripts[0];
-  assert.deepEqual(cs.matches, ['*://*.tiktok.com/*']);
-  assert.equal(cs.run_at, 'document_start');
-  for (const script of cs.js) {
-    const csPath = path.join(process.cwd(), 'dist', script);
-    assert.ok(fs.existsSync(csPath), `Content script ${script} must exist in dist`);
+  for (const cs of manifest.content_scripts) {
+    assert.deepEqual(cs.matches, ['*://*.tiktok.com/*']);
+    assert.equal(cs.run_at, 'document_start');
+    for (const script of cs.js) {
+      const csPath = path.join(process.cwd(), 'dist', script);
+      assert.ok(fs.existsSync(csPath), `Content script ${script} must exist in dist`);
+    }
   }
 
   // 7. Popup files verification

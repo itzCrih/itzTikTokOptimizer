@@ -51,7 +51,19 @@ fs.copyFileSync(
 );
 
 const buildConfigs = [
-  // 1. Content Script Bundle (IIFE format for universal MV3 content script compatibility)
+  // 1. Page Interceptor Bundle (runs in MAIN world at document_start for zero-flicker title and request interception)
+  {
+    entryPoints: [path.join(process.cwd(), 'src', 'content', 'page-interceptor.js')],
+    outfile: path.join(distDir, 'content', 'page-interceptor.bundle.js'),
+    bundle: true,
+    format: 'iife',
+    platform: 'browser',
+    target: ['chrome110'],
+    minify: !isWatch,
+    sourcemap: isWatch ? 'inline' : false,
+    logLevel: 'info'
+  },
+  // 2. Content Script Bundle (IIFE format for universal MV3 content script compatibility)
   {
     entryPoints: [path.join(process.cwd(), 'src', 'content', 'entry.js')],
     outfile: path.join(distDir, 'content', 'content.bundle.js'),
@@ -63,7 +75,7 @@ const buildConfigs = [
     sourcemap: isWatch ? 'inline' : false,
     logLevel: 'info'
   },
-  // 2. Background Service Worker (ESM format for MV3 background module)
+  // 3. Background Service Worker (ESM format for MV3 background module)
   {
     entryPoints: [path.join(process.cwd(), 'src', 'background', 'service-worker.js')],
     outfile: path.join(distDir, 'background', 'service-worker.js'),
@@ -75,7 +87,7 @@ const buildConfigs = [
     sourcemap: isWatch ? 'inline' : false,
     logLevel: 'info'
   },
-  // 3. Popup Controller Bundle
+  // 4. Popup Controller Bundle
   {
     entryPoints: [path.join(process.cwd(), 'src', 'popup', 'popup.js')],
     outfile: path.join(distDir, 'popup', 'popup.js'),
