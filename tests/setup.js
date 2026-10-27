@@ -65,6 +65,12 @@ export class MockElement {
     this.id = attributes.id || '';
     this.textContent = '';
     this.dataset = {};
+    const styles = {};
+    this.style = {
+      setProperty: (prop, val) => { styles[prop] = val; },
+      removeProperty: (prop) => { delete styles[prop]; },
+      getPropertyValue: (prop) => styles[prop] || ''
+    };
   }
 
   get parentElement() {
