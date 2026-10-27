@@ -116,3 +116,20 @@ export function filterOutLiveFeedItems(itemList) {
     return true;
   });
 }
+
+/**
+ * Checks if a URL points to third-party telemetry, monitors, or analytics
+ * that violate TikTok's CSP directives or trigger network fetch rejections.
+ * Examples: CapCut PNS web runtime (mon-sg.capcutapi.com).
+ * Intercepting these requests eliminates unhandled fetch errors in the browser.
+ */
+export function isBlockedTelemetryUrl(url) {
+  if (!url) return false;
+  const u = String(url).toLowerCase();
+  return (
+    u.includes('capcutapi.com') ||
+    (u.includes('/monitor_browser/collect/') && !u.includes('tiktok.com')) ||
+    u.includes('bid=capcut_pns_web_runtime')
+  );
+}
+

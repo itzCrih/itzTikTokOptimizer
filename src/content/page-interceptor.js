@@ -20,7 +20,8 @@ import {
   isImUrl,
   isShareUrl,
   isFeedRecommendUrl,
-  filterOutLiveFeedItems
+  filterOutLiveFeedItems,
+  isBlockedTelemetryUrl
 } from '../shared/sanitizer.js';
 
 (function initItzPageInterceptor() {
@@ -197,16 +198,25 @@ import {
     return false;
   }
 
-  // --- 4. FETCH INTERCEPTION FOR NOTICES, DMS, SHARE & LIVE REMOVAL ---
+  // --- 4. FETCH INTERCEPTION FOR NOTICES, DMS, SHARE, TELEMETRY & LIVE REMOVAL ---
   try {
     if (typeof window !== 'undefined' && window.fetch) {
       const origFetch = window.fetch;
-      window.fetch = async function(...args) {
+      window.fetch = function(...args) {
         const rawUrl = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
 
-        // A. Notices & Notification Streams
+        // A. Blocked / CSP-violating third-party telemetry monitors (e.g. CapCut PNS runtime)
+        // Resolving immediately with mock 200 prevents browser CSP errors and fetch rejections
+        if (isBlockedTelemetryUrl(rawUrl)) {
+          return Promise.resolve(new Response(JSON.stringify({ status_code: 0, message: 'ok' }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          }));
+        }
+
+        // B. Notices & Notification Streams
         if (notificationsBlocked && isNoticeUrl(rawUrl)) {
-          return new Response(JSON.stringify({
+          return Promise.resolve(new Response(JSON.stringify({
             status_code: 0,
             status_msg: '',
             notice_count: 0,
@@ -218,10 +228,10 @@ import {
           }), {
             status: 200,
             headers: { 'Content-Type': 'application/json' }
-          });
+          }));
         }
 
-        // B. Direct Messaging (IM) - with Share Popup Exemption
+        // C. Direct Messaging (IM) - with Share Popup Exemption
         if (dmsBlocked && isImUrl(rawUrl)) {
           // If the user is currently sharing a post to friends, allow the share contact query / send request
           if (isShareUrl(rawUrl) || isSharePopupOpen()) {
@@ -229,7 +239,7 @@ import {
           }
 
           // Otherwise, block incoming background chat syncing and DM conversations
-          return new Response(JSON.stringify({
+          return Promise.resolve(new Response(JSON.stringify({
             status_code: 0,
             status_msg: '',
             data: [],
@@ -241,26 +251,30 @@ import {
           }), {
             status: 200,
             headers: { 'Content-Type': 'application/json' }
-          });
+          }));
         }
 
-        // C. FYP Feed Recommendations: Filter out recommended LIVE streams
+        // D. FYP Feed Recommendations: Filter out recommended LIVE streams
         if (liveRemovalActive && isFeedRecommendUrl(rawUrl)) {
           try {
-            const response = await origFetch.apply(this, args);
-            const clone = response.clone();
-            const json = await clone.json();
-
-            if (json && Array.isArray(json.itemList)) {
-              json.itemList = filterOutLiveFeedItems(json.itemList);
-              return new Response(JSON.stringify(json), {
-                status: response.status,
-                statusText: response.statusText,
-                headers: response.headers
-              });
-            }
-            return response;
-          } catch (e) {
+            return origFetch.apply(this, args).then((response) => {
+              try {
+                return response.clone().json().then((json) => {
+                  if (json && Array.isArray(json.itemList)) {
+                    json.itemList = filterOutLiveFeedItems(json.itemList);
+                    return new Response(JSON.stringify(json), {
+                      status: response.status,
+                      statusText: response.statusText,
+                      headers: response.headers
+                    });
+                  }
+                  return response;
+                }).catch(() => response);
+              } catch (_) {
+                return response;
+              }
+            });
+          } catch (_) {
             return origFetch.apply(this, args);
           }
         }
@@ -283,6 +297,21 @@ import {
 
       XMLHttpRequest.prototype.send = function(...args) {
         const u = this._itzInterceptUrl;
+
+        // Telemetry interception (e.g. CapCut PNS monitor)
+        if (isBlockedTelemetryUrl(u)) {
+          Object.defineProperty(this, 'readyState', { value: 4, configurable: true });
+          Object.defineProperty(this, 'status', { value: 200, configurable: true });
+          const dummy = JSON.stringify({ status_code: 0, message: 'ok' });
+          Object.defineProperty(this, 'responseText', { value: dummy, configurable: true });
+          Object.defineProperty(this, 'response', { value: dummy, configurable: true });
+          setTimeout(() => {
+            if (typeof this.onreadystatechange === 'function') this.onreadystatechange();
+            if (typeof this.onload === 'function') this.onload();
+          }, 0);
+          return;
+        }
+
         const blockNotice = notificationsBlocked && isNoticeUrl(u);
         const isIm = dmsBlocked && isImUrl(u);
         const allowForShare = isIm && (isShareUrl(u) || isSharePopupOpen());
@@ -379,6 +408,28 @@ import {
       MockWebSocket.CLOSED = 3;
 
       window.WebSocket = MockWebSocket;
+    }
+  } catch (err) {}
+
+  // --- 7. UNHANDLED REJECTION SAFEGUARD FOR TELEMETRY ---
+  try {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('unhandledrejection', (event) => {
+        try {
+          const reason = event && event.reason;
+          const message = String((reason && reason.message) || reason || '');
+          const stack = String((reason && reason.stack) || '');
+          if (
+            message.includes('capcutapi.com') ||
+            stack.includes('capcutapi.com') ||
+            message.includes('capcut_pns') ||
+            stack.includes('capcut_pns') ||
+            (message.includes('Failed to fetch') && (stack.includes('capcut') || stack.includes('monitor_browser')))
+          ) {
+            event.preventDefault();
+          }
+        } catch (_) {}
+      });
     }
   } catch (err) {}
 })();

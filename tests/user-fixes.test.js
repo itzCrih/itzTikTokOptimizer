@@ -4,7 +4,7 @@ import { NotificationsModule } from '../src/content/modules/notifications.js';
 import { FeedModule } from '../src/content/modules/feed.js';
 import { DramaRemovalModule } from '../src/content/modules/drama-removal.js';
 import { LiveRemovalModule } from '../src/content/modules/live-removal.js';
-import { filterOutLiveFeedItems, isShareUrl } from '../src/shared/sanitizer.js';
+import { filterOutLiveFeedItems, isShareUrl, isBlockedTelemetryUrl } from '../src/shared/sanitizer.js';
 import { MockDocument, MockElement } from './setup.js';
 
 test('1. Sidebar icons are never hidden by notification badge eradication', async () => {
@@ -116,3 +116,13 @@ test('6. Big gap in sidebar is collapsed cleanly', () => {
   assert.equal(spacer.style.getPropertyValue('margin'), '2px 0');
   assert.equal(navList.style.getPropertyValue('row-gap'), '4px');
 });
+
+test('7. CSP-violating CapCut PNS monitor and telemetry requests are intercepted', () => {
+  const capcutUrl = 'https://mon-sg.capcutapi.com/monitor_browser/collect/batch/?bid=capcut_pns_web_runtime';
+  assert.equal(isBlockedTelemetryUrl(capcutUrl), true, 'CapCut PNS telemetry monitor must be blocked');
+
+  // Verify normal TikTok endpoints are not blocked
+  assert.equal(isBlockedTelemetryUrl('https://www.tiktok.com/@user/video/12345'), false);
+  assert.equal(isBlockedTelemetryUrl('https://www.tiktok.com/api/recommend/item_list/'), false);
+});
+

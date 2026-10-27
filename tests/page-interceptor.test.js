@@ -7,7 +7,8 @@ import {
   isImUrl,
   isShareUrl,
   isFeedRecommendUrl,
-  filterOutLiveFeedItems
+  filterOutLiveFeedItems,
+  isBlockedTelemetryUrl
 } from '../src/shared/sanitizer.js';
 import { MockDocument } from './setup.js';
 
@@ -88,3 +89,31 @@ test('filterOutLiveFeedItems completely removes LIVE streams from FYP feed recom
   assert.equal(cleaned[2].id, '5');
   assert.ok(!cleaned.some(item => item.live_room || item.is_live));
 });
+
+test('isBlockedTelemetryUrl correctly detects CapCut and broken third-party telemetry monitors', () => {
+  assert.equal(
+    isBlockedTelemetryUrl('https://mon-sg.capcutapi.com/monitor_browser/collect/batch/?bid=capcut_pns_web_runtime'),
+    true
+  );
+  assert.equal(
+    isBlockedTelemetryUrl('https://mon-va.capcutapi.com/monitor_browser/collect/'),
+    true
+  );
+  assert.equal(
+    isBlockedTelemetryUrl('https://example.com/monitor_browser/collect/batch/'),
+    true
+  );
+  assert.equal(
+    isBlockedTelemetryUrl('https://mon.byteintl.com/monitor_browser/collect/?bid=capcut_pns_web_runtime'),
+    true
+  );
+  assert.equal(
+    isBlockedTelemetryUrl('https://www.tiktok.com/api/item/list/'),
+    false
+  );
+  assert.equal(
+    isBlockedTelemetryUrl('https://www.tiktok.com/api/recommend/item_list/'),
+    false
+  );
+});
+
