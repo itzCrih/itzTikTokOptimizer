@@ -112,20 +112,16 @@ export class NotificationsModule extends BaseModule {
         overflow: hidden !important;
       }
 
-      /* 3. Complete eradication of all red notification badges (99+, dots, counters) */
+      /* 3. Complete eradication of all red notification badges (99+, red dots, counters) */
       sup[data-e2e="inbox-badge"],
       div[data-e2e="inbox-icon"] sup,
       div[data-e2e="inbox-badge"],
       div[data-e2e="messages-badge"],
-      span[data-e2e*="badge"],
-      div[data-e2e*="badge"],
-      sup,
-      span[class*="Badge"],
-      div[class*="Badge"],
-      span[class*="badge"],
-      div[class*="badge"],
-      span[class*="Dot"],
-      div[class*="Dot"],
+      a[href*="/messages"] sup,
+      a[href*="/activity"] sup,
+      header sup,
+      nav sup,
+      div[data-e2e="side-nav"] sup,
       span[class*="RedDot"],
       div[class*="RedDot"],
       span[class*="pulse"],
@@ -138,6 +134,25 @@ export class NotificationsModule extends BaseModule {
         width: 0 !important;
         font-size: 0 !important;
         line-height: 0 !important;
+      }
+
+      /* SAFEGUARD: Strictly preserve sidebar icons, photo carousel swap buttons, pagination dots & counters */
+      div[data-e2e="side-nav"] svg,
+      nav svg,
+      header svg,
+      div[data-e2e="side-nav"] a svg,
+      button[aria-label*="Previous" i],
+      button[aria-label*="Next" i],
+      div[class*="ArrowButton"],
+      div[class*="ButtonArrow"],
+      div[class*="SlideControl"],
+      div[class*="PhotoCounter"],
+      div[class*="Pagination"],
+      span[class*="PhotoCounter"] {
+        display: inline-block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
       }
 
       /* 4. Notification flyout panel dormant containment when closed */
@@ -191,25 +206,32 @@ export class NotificationsModule extends BaseModule {
   eradicateBadges(root = document) {
     if (!root || !root.querySelectorAll) return;
 
-    const badges = root.querySelectorAll('sup, span[class*="Badge"], span[class*="badge"], div[class*="Badge"], div[class*="badge"]');
+    // Target semantic notification badges strictly (never touch icons or feed elements)
+    const badges = root.querySelectorAll(
+      'header sup, nav sup, div[data-e2e="side-nav"] sup, a[href*="/messages"] sup, a[href*="/activity"] sup, [data-e2e="inbox-badge"], [data-e2e="messages-badge"], span[class*="RedDot"], div[class*="RedDot"]'
+    );
     for (let i = 0; i < badges.length; i++) {
-      badges[i].classList.add(BADGE_HIDE_CLASS);
-      if (badges[i].style && badges[i].style.setProperty) {
-        badges[i].style.setProperty('display', 'none', 'important');
+      const el = badges[i];
+      // Never hide elements that contain an SVG icon or image
+      if (el.querySelector && el.querySelector('svg, img')) continue;
+      el.classList.add(BADGE_HIDE_CLASS);
+      if (el.style && el.style.setProperty) {
+        el.style.setProperty('display', 'none', 'important');
       }
     }
 
-    // Also look for elements with text "99+"
-    const allBadges = root.querySelectorAll('span, div, sup');
+    // Also look for unread count text nodes ("99+", etc.) strictly inside sidebar, header, or message buttons
+    const allBadges = root.querySelectorAll(
+      'a[href*="/messages"] span, a[href*="/activity"] span, div[data-e2e="side-nav"] sup, header sup'
+    );
     for (let i = 0; i < allBadges.length; i++) {
       const el = allBadges[i];
+      if (el.querySelector && el.querySelector('svg, img')) continue;
       const t = (el.textContent || '').trim();
       if (t === '99+' || t === '99' || (/^\d+$/.test(t) && el.children.length === 0)) {
-        if (el.closest('a[href*="/messages"], a[href*="/activity"], div[data-e2e="side-nav"], header, nav')) {
-          el.classList.add(BADGE_HIDE_CLASS);
-          if (el.style && el.style.setProperty) {
-            el.style.setProperty('display', 'none', 'important');
-          }
+        el.classList.add(BADGE_HIDE_CLASS);
+        if (el.style && el.style.setProperty) {
+          el.style.setProperty('display', 'none', 'important');
         }
       }
     }

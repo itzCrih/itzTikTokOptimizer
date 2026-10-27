@@ -64,17 +64,15 @@ test('LiveRemovalModule correctly identifies LIVE stream elements and preserves 
 test('DramaRemovalModule correctly identifies short drama series elements and preserves regular videos', () => {
   const dramaMod = new DramaRemovalModule();
 
-  // Test URL detection
+  // Test URL detection - strictly matches shortdrama feature, never normal user playlists
   assert.equal(dramaMod.isDramaUrl('/shortdrama'), true);
   assert.equal(dramaMod.isDramaUrl('/short-drama'), true);
-  assert.equal(dramaMod.isDramaUrl('/series/123'), true);
+  assert.equal(dramaMod.isDramaUrl('/series/123'), false);
+  assert.equal(dramaMod.isDramaUrl('/drama/123'), false);
   assert.equal(dramaMod.isDramaUrl('/'), false);
   assert.equal(dramaMod.isDramaUrl('/foryou'), false);
 
-  // Test 1: Series card attribute
-  const dramaCard1 = new MockElement('div', { 'data-e2e': 'series-card' });
-  assert.equal(dramaMod.isDramaElement(dramaCard1), true);
-
+  // Test 1: Short drama card attribute
   const dramaCardShort = new MockElement('div', { 'data-e2e': 'shortdrama-card' });
   assert.equal(dramaMod.isDramaElement(dramaCardShort), true);
 

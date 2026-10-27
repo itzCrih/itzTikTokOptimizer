@@ -45,12 +45,6 @@ export class MediaModule extends BaseModule {
       div[class*="DivBasicPlayerWrapper"] {
         contain: layout;
       }
-
-      /* Thumbnail grid item containment */
-      div[data-e2e="user-post-item"],
-      div[class*="DivItemContainer"] {
-        contain: layout style;
-      }
     `;
 
     this.injectCSS(css);

@@ -18,7 +18,7 @@ test('NotificationsModule completely suppresses toasts, badges and injects inter
   const styleEl = mockDoc.getElementById(`itz-opt-style-${mod.styleId}`);
   assert.ok(styleEl, 'Notification stylesheet must be injected');
   assert.ok(styleEl.textContent.includes('Toast'), 'Must include toast suppression rules');
-  assert.ok(styleEl.textContent.includes('Badge'), 'Must include badge suppression rules');
+  assert.ok(styleEl.textContent.includes('badge'), 'Must include badge suppression rules');
   assert.ok(styleEl.textContent.includes('display: none !important'), 'Must hide completely');
 
   // Test toast eradication

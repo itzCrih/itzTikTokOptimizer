@@ -1,6 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanTitle, isDirtyTitle, isNoticeUrl, isImUrl } from '../src/shared/sanitizer.js';
+import {
+  cleanTitle,
+  isDirtyTitle,
+  isNoticeUrl,
+  isImUrl,
+  isShareUrl,
+  isFeedRecommendUrl,
+  filterOutLiveFeedItems
+} from '../src/shared/sanitizer.js';
 import { MockDocument } from './setup.js';
 
 test('Title Sanitizer permanently removes notification numbers and badges', () => {
@@ -51,4 +59,32 @@ test('isImUrl correctly detects Direct Messaging and IM endpoints', () => {
   // Non-IM endpoints must return false
   assert.equal(isImUrl('https://www.tiktok.com/api/recommend/item_list/'), false);
   assert.equal(isImUrl('https://www.tiktok.com/@creator/video/12345'), false);
+});
+
+test('isShareUrl correctly permits post sharing requests so friends appear in Share dialog', () => {
+  assert.equal(isShareUrl('https://www.tiktok.com/api/im/share/user_list/'), true);
+  assert.equal(isShareUrl('https://www.tiktok.com/api/v1/web/im/user/?scene=share'), true);
+  assert.equal(isShareUrl('https://www.tiktok.com/api/im/message/send/?action=share'), true);
+  assert.equal(isShareUrl('https://www.tiktok.com/web/im/share/list/'), true);
+
+  // Normal background chat polling must not be identified as share
+  assert.equal(isShareUrl('https://www.tiktok.com/web/im/chat/list/'), false);
+  assert.equal(isShareUrl('https://www.tiktok.com/api/im/sync/'), false);
+});
+
+test('filterOutLiveFeedItems completely removes LIVE streams from FYP feed recommendations', () => {
+  const sampleFeed = [
+    { id: '1', desc: 'Normal cool video 1', video: { duration: 15 } },
+    { id: '2', desc: 'Streamer is LIVE right now!', live_room: { room_id: '999' }, media_type: 2 },
+    { id: '3', desc: 'Normal cool video 2', video: { duration: 30 } },
+    { id: '4', desc: 'Another LIVE recommendation', is_live: true },
+    { id: '5', desc: 'Normal photo carousel post', image_post_info: { images: [] } }
+  ];
+
+  const cleaned = filterOutLiveFeedItems(sampleFeed);
+  assert.equal(cleaned.length, 3);
+  assert.equal(cleaned[0].id, '1');
+  assert.equal(cleaned[1].id, '3');
+  assert.equal(cleaned[2].id, '5');
+  assert.ok(!cleaned.some(item => item.live_room || item.is_live));
 });

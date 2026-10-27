@@ -8,10 +8,20 @@
  * 2. Neutralizes Web Notifications API so TikTok cannot prompt or push notifications.
  * 3. Intercepts fetch and XMLHttpRequest for all notice and Direct Messaging (IM) endpoints,
  *    returning empty success responses instantly to prevent data loading and eliminate network lag.
- * 4. Silences IM / frontier WebSockets so chat streams and unread event counters never enter the page.
+ * 4. Permits user-initiated sharing requests so friends appear in the "Share to" popup when sending posts.
+ * 5. Intercepts FYP feed responses at the network level to filter out LIVE stream recommendations before render.
+ * 6. Silences IM / frontier WebSockets so chat streams and unread event counters never enter the page.
  */
 
-import { cleanTitle, isDirtyTitle, isNoticeUrl, isImUrl } from '../shared/sanitizer.js';
+import {
+  cleanTitle,
+  isDirtyTitle,
+  isNoticeUrl,
+  isImUrl,
+  isShareUrl,
+  isFeedRecommendUrl,
+  filterOutLiveFeedItems
+} from '../shared/sanitizer.js';
 
 (function initItzPageInterceptor() {
   'use strict';
@@ -19,6 +29,7 @@ import { cleanTitle, isDirtyTitle, isNoticeUrl, isImUrl } from '../shared/saniti
   // State flags: active by default from the earliest microsecond of page start
   let notificationsBlocked = true;
   let dmsBlocked = true;
+  let liveRemovalActive = true;
 
   // Listen for sync messages from extension content script
   if (typeof window !== 'undefined') {
@@ -29,6 +40,9 @@ import { cleanTitle, isDirtyTitle, isNoticeUrl, isImUrl } from '../shared/saniti
       }
       if (typeof event.data.dmsBlocked === 'boolean') {
         dmsBlocked = event.data.dmsBlocked;
+      }
+      if (typeof event.data.liveRemovalActive === 'boolean') {
+        liveRemovalActive = event.data.liveRemovalActive;
       }
     });
   }
@@ -162,15 +176,37 @@ import { cleanTitle, isDirtyTitle, isNoticeUrl, isImUrl } from '../shared/saniti
     }
   } catch (err) {}
 
-  // --- 3. FETCH INTERCEPTION FOR NOTICES & DIRECT MESSAGES ---
+  // --- 3. HELPER: SHARE TO FRIENDS POPUP DETECTION ---
+  function isSharePopupOpen() {
+    if (typeof document === 'undefined') return false;
+    try {
+      const dialog = document.querySelector(
+        'div[data-e2e*="share-panel"], div[class*="ShareModal"], div[class*="DivShareWrapper"], div[class*="ShareContainer"], div[role="dialog"] [class*="Share"]'
+      );
+      if (dialog) return true;
+
+      // Check headings or text for "Share to"
+      const elements = document.querySelectorAll('h2, h3, h4, div, span');
+      for (let i = 0; i < elements.length; i++) {
+        const t = (elements[i].textContent || '').trim().toLowerCase();
+        if (t === 'share to' && elements[i].children.length === 0) {
+          return true;
+        }
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  // --- 4. FETCH INTERCEPTION FOR NOTICES, DMS, SHARE & LIVE REMOVAL ---
   try {
     if (typeof window !== 'undefined' && window.fetch) {
       const origFetch = window.fetch;
-      window.fetch = function(...args) {
+      window.fetch = async function(...args) {
         const rawUrl = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
 
+        // A. Notices & Notification Streams
         if (notificationsBlocked && isNoticeUrl(rawUrl)) {
-          return Promise.resolve(new Response(JSON.stringify({
+          return new Response(JSON.stringify({
             status_code: 0,
             status_msg: '',
             notice_count: 0,
@@ -182,11 +218,18 @@ import { cleanTitle, isDirtyTitle, isNoticeUrl, isImUrl } from '../shared/saniti
           }), {
             status: 200,
             headers: { 'Content-Type': 'application/json' }
-          }));
+          });
         }
 
+        // B. Direct Messaging (IM) - with Share Popup Exemption
         if (dmsBlocked && isImUrl(rawUrl)) {
-          return Promise.resolve(new Response(JSON.stringify({
+          // If the user is currently sharing a post to friends, allow the share contact query / send request
+          if (isShareUrl(rawUrl) || isSharePopupOpen()) {
+            return origFetch.apply(this, args);
+          }
+
+          // Otherwise, block incoming background chat syncing and DM conversations
+          return new Response(JSON.stringify({
             status_code: 0,
             status_msg: '',
             data: [],
@@ -198,7 +241,28 @@ import { cleanTitle, isDirtyTitle, isNoticeUrl, isImUrl } from '../shared/saniti
           }), {
             status: 200,
             headers: { 'Content-Type': 'application/json' }
-          }));
+          });
+        }
+
+        // C. FYP Feed Recommendations: Filter out recommended LIVE streams
+        if (liveRemovalActive && isFeedRecommendUrl(rawUrl)) {
+          try {
+            const response = await origFetch.apply(this, args);
+            const clone = response.clone();
+            const json = await clone.json();
+
+            if (json && Array.isArray(json.itemList)) {
+              json.itemList = filterOutLiveFeedItems(json.itemList);
+              return new Response(JSON.stringify(json), {
+                status: response.status,
+                statusText: response.statusText,
+                headers: response.headers
+              });
+            }
+            return response;
+          } catch (e) {
+            return origFetch.apply(this, args);
+          }
         }
 
         return origFetch.apply(this, args);
@@ -206,7 +270,7 @@ import { cleanTitle, isDirtyTitle, isNoticeUrl, isImUrl } from '../shared/saniti
     }
   } catch (err) {}
 
-  // --- 4. XMLHTTPREQUEST INTERCEPTION ---
+  // --- 5. XMLHTTPREQUEST INTERCEPTION ---
   try {
     if (typeof XMLHttpRequest !== 'undefined' && XMLHttpRequest.prototype) {
       const origOpen = XMLHttpRequest.prototype.open;
@@ -220,9 +284,10 @@ import { cleanTitle, isDirtyTitle, isNoticeUrl, isImUrl } from '../shared/saniti
       XMLHttpRequest.prototype.send = function(...args) {
         const u = this._itzInterceptUrl;
         const blockNotice = notificationsBlocked && isNoticeUrl(u);
-        const blockIm = dmsBlocked && isImUrl(u);
+        const isIm = dmsBlocked && isImUrl(u);
+        const allowForShare = isIm && (isShareUrl(u) || isSharePopupOpen());
 
-        if (blockNotice || blockIm) {
+        if (blockNotice || (isIm && !allowForShare)) {
           Object.defineProperty(this, 'readyState', { value: 4, configurable: true });
           Object.defineProperty(this, 'status', { value: 200, configurable: true });
           const emptyBody = JSON.stringify({
@@ -244,12 +309,33 @@ import { cleanTitle, isDirtyTitle, isNoticeUrl, isImUrl } from '../shared/saniti
           return;
         }
 
+        // Filter LIVE items on XMLHttpRequest feed recommendations if applicable
+        if (liveRemovalActive && isFeedRecommendUrl(u)) {
+          const originalOnLoad = this.onload;
+          this.onload = function(...evArgs) {
+            try {
+              if (this.responseText) {
+                const data = JSON.parse(this.responseText);
+                if (data && Array.isArray(data.itemList)) {
+                  data.itemList = filterOutLiveFeedItems(data.itemList);
+                  const cleanedText = JSON.stringify(data);
+                  Object.defineProperty(this, 'responseText', { value: cleanedText, configurable: true });
+                  Object.defineProperty(this, 'response', { value: cleanedText, configurable: true });
+                }
+              }
+            } catch (e) {}
+            if (typeof originalOnLoad === 'function') {
+              originalOnLoad.apply(this, evArgs);
+            }
+          };
+        }
+
         return origSend.apply(this, args);
       };
     }
   } catch (err) {}
 
-  // --- 5. WEBSOCKET INTERCEPTION ---
+  // --- 6. WEBSOCKET INTERCEPTION ---
   try {
     if (typeof window !== 'undefined' && window.WebSocket) {
       const OriginalWS = window.WebSocket;

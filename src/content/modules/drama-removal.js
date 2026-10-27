@@ -66,17 +66,12 @@ export class DramaRemovalModule extends BaseModule {
     const path = (pathname || (typeof window !== 'undefined' ? window.location.pathname : '')).toLowerCase();
     return (
       path.startsWith('/shortdrama') ||
-      path.startsWith('/short-drama') ||
-      path.startsWith('/series') ||
-      path.startsWith('/drama')
+      path.startsWith('/short-drama')
     );
   }
 
   preventDramaPageLoading() {
     if (typeof window === 'undefined') return;
-    if (document && document.documentElement) {
-      document.documentElement.style.display = 'none';
-    }
     window.location.replace('/');
   }
 
@@ -87,22 +82,13 @@ export class DramaRemovalModule extends BaseModule {
       /* 1. Complete suppression of Short Drama Button and its wrapper container */
       a[href*="/shortdrama"],
       a[href*="/short-drama"],
-      a[href*="/series"],
-      a[href*="/drama"],
-      li:has(a[href*="/shortdrama"]),
-      li:has(a[href*="/short-drama"]),
-      li:has(a[href*="/series"]),
-      li:has(a[href*="/drama"]),
+      li:has(> a[href*="/shortdrama"]),
+      li:has(> a[href*="/short-drama"]),
       div:has(> a[href*="/shortdrama"]),
       div:has(> a[href*="/short-drama"]),
-      div:has(> a[href*="/series"]),
-      div:has(> a[href*="/drama"]),
-      div:has(> div > a[href*="/shortdrama"]),
-      div:has(> div > a[href*="/short-drama"]),
+      [data-e2e="shortdrama-side-nav"],
       [data-e2e*="shortdrama"],
       [data-e2e*="short-drama"],
-      [data-e2e*="drama"],
-      [data-e2e*="series"],
       .${DRAMA_BUTTON_HIDE_CLASS} {
         display: none !important;
         margin: 0 !important;
@@ -149,7 +135,6 @@ export class DramaRemovalModule extends BaseModule {
       div[data-e2e="side-nav"] ul:has(a[href*="/@"]),
       div[data-e2e="side-nav"] ul:has(a[href*="/messages"]),
       div[data-e2e="side-nav"] div:has(> a[href*="/messages"]),
-      div[data-e2e="side-nav"] div:has(> div > a[href*="/messages"]),
       div[class*="SideNav"] ul:has(a[href*="/upload"]),
       div[class*="SideNav"] div:has(a[href*="/upload"]),
       div[class*="SideNav"] ul:has(a[href*="/messages"]),
@@ -161,14 +146,19 @@ export class DramaRemovalModule extends BaseModule {
       /* Collapse large spacers between upper and lower nav */
       div[data-e2e="side-nav"] div[class*="Spacer"],
       div[data-e2e="side-nav"] div[class*="Divider"],
+      div[data-e2e="side-nav"] hr,
+      nav div[class*="Spacer"],
+      nav div[class*="Divider"],
+      nav hr,
       div[class*="SideNav"] div[class*="Spacer"],
       div[class*="SideNav"] div[class*="Divider"] {
         height: 1px !important;
         min-height: 0 !important;
         margin: 4px 0 !important;
+        padding: 0 !important;
       }
 
-      /* Ensure surviving navigation items (For You, Explore, Following, Friends) scale cleanly */
+      /* Ensure surviving navigation items and icons scale cleanly */
       div[data-e2e="side-nav"] a,
       nav a[href],
       div[class*="SideNav"] a[href],
@@ -177,20 +167,19 @@ export class DramaRemovalModule extends BaseModule {
         margin-bottom: 0 !important;
       }
 
+      div[data-e2e="side-nav"] a svg,
+      nav a svg,
+      div[data-e2e="side-nav"] svg {
+        display: inline-block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+      }
+
       /* 3. Feed cards, series hubs, and drama promo banners */
       div[data-e2e="recommend-list-item-container"]:has(a[href*="/shortdrama"]),
       div[data-e2e="recommend-list-item-container"]:has(a[href*="/short-drama"]),
-      div[data-e2e="recommend-list-item-container"]:has(a[href*="/series"]),
-      div[data-e2e="recommend-list-item-container"]:has(a[href*="/drama"]),
-      div[data-e2e="recommend-list-item-container"]:has([data-e2e*="series"]),
-      div[data-e2e="recommend-list-item-container"]:has([data-e2e*="drama"]),
-      div[data-e2e="series-card"],
-      div[data-e2e="drama-card"],
       div[data-e2e="shortdrama-card"],
-      div[data-e2e="series-side-nav"],
-      div[data-e2e="drama-banner"],
-      div[class*="SeriesPromoContainer"],
-      div[class*="DramaBanner"],
+      div[data-e2e="shortdrama-side-nav"],
       div[class*="ShortDrama"] {
         display: none !important;
       }
@@ -220,8 +209,6 @@ export class DramaRemovalModule extends BaseModule {
       const isShortDramaBtn =
         href.includes('/shortdrama') ||
         href.includes('/short-drama') ||
-        href.includes('/series') ||
-        href.includes('/drama') ||
         dataE2e.includes('shortdrama') ||
         dataE2e.includes('short-drama') ||
         text === 'short dramas' ||
@@ -236,7 +223,6 @@ export class DramaRemovalModule extends BaseModule {
         if (parentWrapper) {
           parentWrapper.classList.add(DRAMA_BUTTON_HIDE_CLASS);
         } else if (el.parentElement && el.parentElement !== document.body) {
-          // If parent is a dedicated item container
           const p = el.parentElement;
           if (p.children.length === 1 || p.textContent.trim().toLowerCase() === text) {
             p.classList.add(DRAMA_BUTTON_HIDE_CLASS);
@@ -252,41 +238,29 @@ export class DramaRemovalModule extends BaseModule {
   compactSidebarNavigation(root = document) {
     if (!root || !root.querySelectorAll) return;
 
-    const lowerLink = root.querySelector ? root.querySelector('a[href*="/upload"], a[href*="/@"], a[href*="/profile"], a[href*="/messages"]') : null;
-    if (lowerLink) {
-      const lowerGroup = lowerLink.closest('ul, div[class*="NavSection"], div[class*="List"]');
-      if (lowerGroup && lowerGroup.style) {
-        lowerGroup.style.setProperty('margin-top', '4px', 'important');
-        lowerGroup.style.setProperty('padding-top', '0px', 'important');
-
-        let prev = lowerGroup.previousElementSibling;
-        while (prev) {
-          const text = (prev.textContent || '').trim();
-          if (!text || (prev.matches && prev.matches('hr, div[class*="Divider"], div[class*="Spacer"], div[class*="Line"]'))) {
-            if (prev.style) {
-              prev.style.setProperty('margin', '2px 0', 'important');
-              prev.style.setProperty('height', '1px', 'important');
-              prev.style.setProperty('min-height', '0px', 'important');
-            }
-          } else {
-            if (prev.style) {
-              prev.style.setProperty('min-height', '0px', 'important');
-              prev.style.setProperty('margin-bottom', '2px', 'important');
-              prev.style.setProperty('padding-bottom', '0px', 'important');
-            }
-            break;
-          }
-          prev = prev.previousElementSibling;
+    // 1. Collapse large spacers and dividers inside the navigation sidebar
+    const spacers = root.querySelectorAll('div[class*="Spacer"], div[class*="Divider"], hr');
+    for (let i = 0; i < spacers.length; i++) {
+      const s = spacers[i];
+      if (s.closest && s.closest('div[data-e2e="side-nav"], nav')) {
+        if (s.style) {
+          s.style.setProperty('margin', '2px 0', 'important');
+          s.style.setProperty('height', '1px', 'important');
+          s.style.setProperty('min-height', '0px', 'important');
+          s.style.setProperty('padding', '0', 'important');
         }
       }
     }
 
-    const friendsLink = root.querySelector ? root.querySelector('a[href*="/friends"]') : null;
-    if (friendsLink) {
-      const friendsGroup = friendsLink.closest('ul, div[class*="NavSection"], div[class*="List"]');
-      if (friendsGroup && friendsGroup.style) {
-        friendsGroup.style.setProperty('min-height', '0px', 'important');
-        friendsGroup.style.setProperty('margin-bottom', '2px', 'important');
+    // 2. Normalize list gaps inside the navigation sidebar
+    const navLists = root.querySelectorAll('ul');
+    for (let i = 0; i < navLists.length; i++) {
+      const ul = navLists[i];
+      if (ul.closest && ul.closest('div[data-e2e="side-nav"], nav')) {
+        if (ul.style) {
+          ul.style.setProperty('row-gap', '4px', 'important');
+          ul.style.setProperty('margin-bottom', '4px', 'important');
+        }
       }
     }
   }
@@ -295,15 +269,13 @@ export class DramaRemovalModule extends BaseModule {
     if (!node || node.nodeType !== 1) return false;
 
     const dramaAttr = node.getAttribute && (
-      node.getAttribute('data-e2e') === 'series-card' ||
-      node.getAttribute('data-e2e') === 'drama-card' ||
       node.getAttribute('data-e2e') === 'shortdrama-card' ||
       (node.getAttribute('data-e2e') && node.getAttribute('data-e2e').includes('shortdrama'))
     );
     if (dramaAttr) return true;
 
     const dramaLink = node.querySelector && node.querySelector(
-      'a[href*="/shortdrama"], a[href*="/short-drama"], a[href*="/series/"], a[href*="/drama/"]'
+      'a[href*="/shortdrama"], a[href*="/short-drama"]'
     );
     if (dramaLink) return true;
 

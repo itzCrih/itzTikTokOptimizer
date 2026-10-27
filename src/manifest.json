@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "itzTikTok Optimizer",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "High-performance TikTok web optimization extension: reduces UI lag, virtualizes messaging and feeds, suppresses LIVE/dramas, and lowers resource usage.",
   "author": "itzCrih (https://itzcrih.it)",
   "homepage_url": "https://itzcrih.it",

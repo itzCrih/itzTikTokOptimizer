@@ -26,6 +26,7 @@ export class LiveRemovalModule extends BaseModule {
   }
 
   async onEnable(settings) {
+    this.syncPageInterceptor(true);
     this.applyLiveStyles();
     this.scanAndSuppressLiveElements();
     this.setupLiveObserver();
@@ -37,7 +38,17 @@ export class LiveRemovalModule extends BaseModule {
       this.observer.disconnect();
       this.observer = null;
     }
+    this.syncPageInterceptor(false);
     this.restoreSuppressedElements();
+  }
+
+  syncPageInterceptor(active) {
+    if (typeof window !== 'undefined' && typeof window.postMessage === 'function') {
+      window.postMessage({
+        source: 'itz-optimizer-content',
+        liveRemovalActive: active
+      }, '*');
+    }
   }
 
   applyLiveStyles() {
@@ -60,13 +71,17 @@ export class LiveRemovalModule extends BaseModule {
       div[data-e2e="feed-item"]:has(a[href*="/live"]),
       div[data-e2e="live-card"],
       div[class*="DivLiveContainer"],
-      div[class*="LiveCardContainer"] {
-        display: none !important;
-      }
-
-      /* 3. Class-based fallback for dynamic elements */
+      div[class*="LiveCardContainer"],
       .${LIVE_HIDE_CLASS} {
         display: none !important;
+        height: 0px !important;
+        min-height: 0px !important;
+        max-height: 0px !important;
+        margin: 0px !important;
+        padding: 0px !important;
+        overflow: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
       }
     `;
 
@@ -104,6 +119,24 @@ export class LiveRemovalModule extends BaseModule {
       const card = candidates[i];
       if (this.isLiveElement(card)) {
         card.classList.add(LIVE_HIDE_CLASS);
+        if (card.style && card.style.setProperty) {
+          card.style.setProperty('height', '0px', 'important');
+          card.style.setProperty('min-height', '0px', 'important');
+          card.style.setProperty('margin', '0px', 'important');
+          card.style.setProperty('overflow', 'hidden', 'important');
+          card.style.setProperty('display', 'none', 'important');
+        }
+
+        // If this LIVE card is currently in viewport in FYP, auto-advance to next video so no black screen appears
+        try {
+          const rect = card.getBoundingClientRect ? card.getBoundingClientRect() : null;
+          if (rect && rect.top >= -50 && rect.top <= (typeof window !== 'undefined' ? window.innerHeight : 800) / 2) {
+            const nextCard = card.nextElementSibling;
+            if (nextCard && typeof nextCard.scrollIntoView === 'function') {
+              nextCard.scrollIntoView({ behavior: 'instant', block: 'start' });
+            }
+          }
+        } catch (e) {}
       }
     }
   }

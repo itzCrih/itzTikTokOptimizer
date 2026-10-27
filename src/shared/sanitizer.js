@@ -60,3 +60,59 @@ export function isImUrl(url) {
     u.includes('/chat/list/')
   );
 }
+
+/**
+ * Checks if a request URL or query specifically belongs to video/post sharing.
+ * When the user opens the "Share to" popup to send a video to friends,
+ * these requests must be allowed so friends appear in the popup.
+ */
+export function isShareUrl(url) {
+  if (!url) return false;
+  const u = String(url).toLowerCase();
+  return (
+    u.includes('share') ||
+    u.includes('/share/user_list') ||
+    u.includes('scene=share') ||
+    u.includes('type=share') ||
+    u.includes('share_type') ||
+    u.includes('action=share') ||
+    u.includes('enter_from=share') ||
+    u.includes('msg_type=share')
+  );
+}
+
+/**
+ * Checks if a URL points to TikTok FYP feed recommendations.
+ */
+export function isFeedRecommendUrl(url) {
+  if (!url) return false;
+  const u = String(url).toLowerCase();
+  return (
+    u.includes('/api/recommend/item_list/') ||
+    u.includes('/api/feed/item/') ||
+    u.includes('/api/item/list/')
+  );
+}
+
+/**
+ * Filters out recommended LIVE stream cards from feed item lists.
+ * Eliminates LIVE streams before they reach TikTok's React application,
+ * preventing empty/black screens in the FYP feed.
+ */
+export function filterOutLiveFeedItems(itemList) {
+  if (!Array.isArray(itemList)) return itemList;
+  return itemList.filter((item) => {
+    if (!item || typeof item !== 'object') return false;
+    // Check if the item represents a LIVE stream or live room recommendation
+    if (item.live_room || item.live_info || item.live_reason || item.is_live) {
+      return false;
+    }
+    if (item.media_type === 2 || item.item_type === 2) {
+      return false;
+    }
+    if (item.cell_type === 'live' || item.cell_type === 2) {
+      return false;
+    }
+    return true;
+  });
+}

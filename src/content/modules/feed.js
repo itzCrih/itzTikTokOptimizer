@@ -52,7 +52,7 @@ export class FeedModule extends BaseModule {
       /* 2. Offscreen Feed Item Virtualization */
       /* Instructs Chromium to skip layout & paint passes for offscreen video cards */
       div[data-e2e="feed-item"],
-      div[data-e2e="recommend-list-item-container"] > div {
+      div[data-e2e="recommend-list-item-container"] {
         content-visibility: auto;
         contain-intrinsic-size: 700px;
       }
@@ -67,6 +67,21 @@ export class FeedModule extends BaseModule {
       div[data-e2e="feed-author-info"],
       div[class*="DivAuthorContainer"] {
         contain: layout style;
+      }
+
+      /* 5. Safeguard multi-photo slide swap buttons, arrows and photo counters */
+      button[aria-label*="Previous" i],
+      button[aria-label*="Next" i],
+      div[class*="ArrowButton"],
+      div[class*="ButtonArrow"],
+      div[class*="SlideControl"],
+      div[class*="PhotoCounter"],
+      div[class*="Pagination"],
+      span[class*="PhotoCounter"] {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
       }
     `;
 
