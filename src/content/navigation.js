@@ -23,7 +23,12 @@ export function parseRoute(pathname) {
   if (pathname.startsWith('/live')) {
     return ROUTES.LIVE;
   }
-  if (pathname.startsWith('/series') || pathname.startsWith('/drama')) {
+  if (
+    pathname.startsWith('/series') ||
+    pathname.startsWith('/drama') ||
+    pathname.startsWith('/shortdrama') ||
+    pathname.startsWith('/short-drama')
+  ) {
     return ROUTES.SERIES;
   }
   if (pathname.startsWith('/explore')) {

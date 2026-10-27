@@ -13,6 +13,8 @@ test('parseRoute correctly categorizes TikTok SPA routes', () => {
   assert.equal(parseRoute('/live/streamer1'), ROUTES.LIVE);
   assert.equal(parseRoute('/series/drama-title'), ROUTES.SERIES);
   assert.equal(parseRoute('/drama/watch-now'), ROUTES.SERIES);
+  assert.equal(parseRoute('/shortdrama'), ROUTES.SERIES);
+  assert.equal(parseRoute('/short-drama'), ROUTES.SERIES);
   assert.equal(parseRoute('/explore'), ROUTES.EXPLORE);
   assert.equal(parseRoute('/@itzcrih'), ROUTES.PROFILE);
   assert.equal(parseRoute('/@itzcrih/video/728192039481'), ROUTES.VIDEO);

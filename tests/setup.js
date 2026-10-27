@@ -53,12 +53,31 @@ export class MockElement {
     this.nodeType = 1;
     this.tagName = tagName.toUpperCase();
     this.attributes = { ...attributes };
-    this.classList = new Set();
+    const classes = new Set();
+    this.classList = {
+      add: (cls) => classes.add(cls),
+      remove: (cls) => classes.delete(cls),
+      contains: (cls) => classes.has(cls),
+      has: (cls) => classes.has(cls)
+    };
     this.children = [];
     this.parentNode = null;
     this.id = attributes.id || '';
     this.textContent = '';
     this.dataset = {};
+  }
+
+  get parentElement() {
+    return this.parentNode;
+  }
+
+  closest(sel) {
+    let curr = this;
+    while (curr) {
+      if (curr.matches && curr.matches(sel)) return curr;
+      curr = curr.parentNode;
+    }
+    return null;
   }
 
   getAttribute(name) {
@@ -113,6 +132,10 @@ export class MockElement {
   }
 
   matches(sel) {
+    if (sel.includes(',')) {
+      const parts = sel.split(',').map(s => s.trim());
+      return parts.some(p => this.matches(p));
+    }
     if (sel === '*') return true;
     if (sel.startsWith('#')) return this.id === sel.slice(1);
     if (sel.startsWith('.')) return this.classList.has(sel.slice(1));

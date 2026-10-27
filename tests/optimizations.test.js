@@ -64,17 +64,39 @@ test('LiveRemovalModule correctly identifies LIVE stream elements and preserves 
 test('DramaRemovalModule correctly identifies short drama series elements and preserves regular videos', () => {
   const dramaMod = new DramaRemovalModule();
 
+  // Test URL detection
+  assert.equal(dramaMod.isDramaUrl('/shortdrama'), true);
+  assert.equal(dramaMod.isDramaUrl('/short-drama'), true);
+  assert.equal(dramaMod.isDramaUrl('/series/123'), true);
+  assert.equal(dramaMod.isDramaUrl('/'), false);
+  assert.equal(dramaMod.isDramaUrl('/foryou'), false);
+
   // Test 1: Series card attribute
   const dramaCard1 = new MockElement('div', { 'data-e2e': 'series-card' });
   assert.equal(dramaMod.isDramaElement(dramaCard1), true);
 
-  // Test 2: Card containing a /series/ link
+  const dramaCardShort = new MockElement('div', { 'data-e2e': 'shortdrama-card' });
+  assert.equal(dramaMod.isDramaElement(dramaCardShort), true);
+
+  // Test 2: Card containing a /shortdrama link
   const dramaCard2 = new MockElement('div');
-  const dramaLink = new MockElement('a', { href: '/series/revenge-drama-ep1' });
+  const dramaLink = new MockElement('a', { href: '/shortdrama' });
   dramaCard2.appendChild(dramaLink);
   assert.equal(dramaMod.isDramaElement(dramaCard2), true);
 
-  // Test 3: Ordinary video item - MUST NOT be flagged as drama!
+  // Test 3: Sidebar button suppression and parent wrapper collapsing
+  const sidebarNav = new MockElement('ul');
+  const navItem = new MockElement('li');
+  const shortDramaBtn = new MockElement('a', { href: '/shortdrama' });
+  shortDramaBtn.textContent = 'Short dramas';
+  navItem.appendChild(shortDramaBtn);
+  sidebarNav.appendChild(navItem);
+
+  dramaMod.suppressSidebarButton(sidebarNav);
+  assert.equal(shortDramaBtn.classList.has('itz-hidden-drama-button'), true);
+  assert.equal(navItem.classList.has('itz-hidden-drama-button'), true);
+
+  // Test 4: Ordinary video item - MUST NOT be flagged as drama!
   const normalCard = new MockElement('div', { 'data-e2e': 'recommend-list-item-container' });
   const userLink = new MockElement('a', { href: '/@creator' });
   normalCard.appendChild(userLink);
