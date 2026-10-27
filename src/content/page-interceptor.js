@@ -411,7 +411,20 @@ import {
     }
   } catch (err) {}
 
-  // --- 7. UNHANDLED REJECTION SAFEGUARD FOR TELEMETRY ---
+  // --- 7. BEACON INTERCEPTION FOR CSP-VIOLATING TELEMETRY ---
+  try {
+    if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+      const origSendBeacon = navigator.sendBeacon;
+      navigator.sendBeacon = function(url, data) {
+        if (isBlockedTelemetryUrl(url)) {
+          return true;
+        }
+        return origSendBeacon.call(this, url, data);
+      };
+    }
+  } catch (err) {}
+
+  // --- 8. UNHANDLED REJECTION SAFEGUARD FOR TELEMETRY ---
   try {
     if (typeof window !== 'undefined') {
       window.addEventListener('unhandledrejection', (event) => {
