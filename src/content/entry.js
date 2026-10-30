@@ -85,7 +85,9 @@ async function bootstrap() {
 }
 
 // Start execution immediately at document_start for instant style injection and zero-delay observer setup
-bootstrap();
+bootstrap().catch((err) => {
+  console.warn('[itzTikTokOptimizer] Bootstrap failed:', err);
+});
 
 // Secondary pass once DOM is fully parsed
 if (typeof document !== 'undefined' && document.readyState === 'loading') {

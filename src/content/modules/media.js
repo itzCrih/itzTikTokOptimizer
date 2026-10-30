@@ -13,17 +13,20 @@
 
 import { BaseModule } from '../lifecycle.js';
 import { MODULE_IDS } from '../../shared/constants.js';
+import { createBatchedObserver } from '../dom-utils.js';
 
 export class MediaModule extends BaseModule {
   constructor() {
     super(MODULE_IDS.MEDIA, 'Media Optimization');
     this.mediaObserver = null;
+    this.domObserver = null;
     this.trackedVideos = new WeakSet();
   }
 
   async onEnable(settings) {
     this.applyMediaStyles();
     this.setupVideoObserver();
+    this.setupDomObserver();
   }
 
   async onDisable() {
@@ -31,6 +34,10 @@ export class MediaModule extends BaseModule {
     if (this.mediaObserver) {
       this.mediaObserver.disconnect();
       this.mediaObserver = null;
+    }
+    if (this.domObserver) {
+      this.domObserver.disconnect();
+      this.domObserver = null;
     }
   }
 
@@ -92,11 +99,46 @@ export class MediaModule extends BaseModule {
     if (!this.mediaObserver) return;
     const videos = document.querySelectorAll('video');
     for (let i = 0; i < videos.length; i++) {
-      const v = videos[i];
-      if (!this.trackedVideos.has(v)) {
-        this.trackedVideos.add(v);
-        this.mediaObserver.observe(v);
+      this.observeVideo(videos[i]);
+    }
+  }
+
+  observeVideo(video) {
+    if (!this.mediaObserver || !video || this.trackedVideos.has(video)) return;
+    this.trackedVideos.add(video);
+    this.mediaObserver.observe(video);
+  }
+
+  setupDomObserver() {
+    if (this.domObserver || typeof document === 'undefined') return;
+
+    this.domObserver = createBatchedObserver({
+      target: document.body || document.documentElement || document,
+      config: { childList: true, subtree: true },
+      debounceMs: 120,
+      filter: (mut) => mut.addedNodes.length > 0,
+      onBatch: (mutations) => {
+        if (!this.mediaObserver) return;
+        for (let i = 0; i < mutations.length; i++) {
+          const addedNodes = mutations[i].addedNodes;
+          for (let j = 0; j < addedNodes.length; j++) {
+            const node = addedNodes[j];
+            if (node.nodeType !== 1) continue;
+            if (node.tagName === 'VIDEO') {
+              this.observeVideo(node);
+            } else if (node.querySelectorAll) {
+              const vids = node.querySelectorAll('video');
+              for (let k = 0; k < vids.length; k++) {
+                this.observeVideo(vids[k]);
+              }
+            }
+          }
+        }
       }
+    });
+
+    if (this.domObserver) {
+      this.registerObserver(this.domObserver);
     }
   }
 }

@@ -82,10 +82,14 @@ export class DramaRemovalModule extends BaseModule {
       /* 1. Complete suppression of Short Drama Button and its wrapper container */
       a[href*="/shortdrama"],
       a[href*="/short-drama"],
-      li:has(> a[href*="/shortdrama"]),
-      li:has(> a[href*="/short-drama"]),
+      li:has(a[href*="/shortdrama"]),
+      li:has(a[href*="/short-drama"]),
       div:has(> a[href*="/shortdrama"]),
       div:has(> a[href*="/short-drama"]),
+      div:has(> div > a[href*="/shortdrama"]),
+      div:has(> div > a[href*="/short-drama"]),
+      div[role="listitem"]:has(a[href*="/shortdrama"]),
+      div[role="listitem"]:has(a[href*="/short-drama"]),
       [data-e2e="shortdrama-side-nav"],
       [data-e2e*="shortdrama"],
       [data-e2e*="short-drama"],
@@ -106,27 +110,48 @@ export class DramaRemovalModule extends BaseModule {
 
       /* 2. Seamless scaling, elimination of void & layout organization */
       /* Normalizes flex spacing so no empty hole or "missed button" gap exists */
-      nav ul,
+      div[data-e2e="side-nav"],
+      aside[class*="SideNav"],
+      div[class*="SideNav"],
+      div[class*="MainNav"] {
+        justify-content: flex-start !important;
+      }
+
       div[data-e2e="side-nav"] ul,
+      aside[class*="SideNav"] ul,
       div[class*="SideNav"] ul,
-      div[class*="MainNav"] ul,
-      div[class*="NavWrapper"] {
+      div[class*="MainNav"] ul {
         display: flex !important;
         flex-direction: column !important;
+        justify-content: flex-start !important;
         row-gap: 4px !important;
       }
 
-      /* Eliminate void between upper nav (Friends) and lower nav (Messages) */
+      /* Eliminate void between upper nav (Friends) and lower nav */
       div[data-e2e="side-nav"] > div,
+      aside[class*="SideNav"] > div,
       div[class*="SideNav"] > div,
       div[class*="MainNav"] > div,
-      div[class*="NavWrapper"] > div,
       div[data-e2e="side-nav"] ul,
+      aside[class*="SideNav"] ul,
       div[class*="SideNav"] ul {
         min-height: 0 !important;
         flex-grow: 0 !important;
+        margin-top: 0 !important;
         margin-bottom: 0 !important;
+        padding-top: 0 !important;
         padding-bottom: 0 !important;
+      }
+
+      /* Hide any empty listitems or leftover wrappers */
+      div[data-e2e="side-nav"] li:empty,
+      div[data-e2e="side-nav"] div[role="listitem"]:empty,
+      aside[class*="SideNav"] li:empty,
+      div[class*="SideNav"] li:empty {
+        display: none !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
       }
 
       /* Pull lower navigation group (Upload, Profile, Messages) directly below Friends */
@@ -135,18 +160,22 @@ export class DramaRemovalModule extends BaseModule {
       div[data-e2e="side-nav"] ul:has(a[href*="/@"]),
       div[data-e2e="side-nav"] ul:has(a[href*="/messages"]),
       div[data-e2e="side-nav"] div:has(> a[href*="/messages"]),
+      aside[class*="SideNav"] ul:has(a[href*="/upload"]),
       div[class*="SideNav"] ul:has(a[href*="/upload"]),
       div[class*="SideNav"] div:has(a[href*="/upload"]),
       div[class*="SideNav"] ul:has(a[href*="/messages"]),
       div[class*="SideNav"] div:has(a[href*="/messages"]) {
-        margin-top: 4px !important;
+        margin-top: 2px !important;
         padding-top: 0 !important;
       }
 
       /* Collapse large spacers between upper and lower nav */
       div[data-e2e="side-nav"] div[class*="Spacer"],
       div[data-e2e="side-nav"] div[class*="Divider"],
+      div[data-e2e="side-nav"] div[class*="Separator"],
       div[data-e2e="side-nav"] hr,
+      aside[class*="SideNav"] div[class*="Spacer"],
+      aside[class*="SideNav"] div[class*="Divider"],
       nav div[class*="Spacer"],
       nav div[class*="Divider"],
       nav hr,
@@ -154,12 +183,13 @@ export class DramaRemovalModule extends BaseModule {
       div[class*="SideNav"] div[class*="Divider"] {
         height: 1px !important;
         min-height: 0 !important;
-        margin: 4px 0 !important;
+        margin: 2px 0 !important;
         padding: 0 !important;
       }
 
       /* Ensure surviving navigation items and icons scale cleanly */
       div[data-e2e="side-nav"] a,
+      aside[class*="SideNav"] a,
       nav a[href],
       div[class*="SideNav"] a[href],
       div[class*="MainNav"] a[href] {
@@ -168,6 +198,7 @@ export class DramaRemovalModule extends BaseModule {
       }
 
       div[data-e2e="side-nav"] a svg,
+      aside[class*="SideNav"] a svg,
       nav a svg,
       div[data-e2e="side-nav"] svg {
         display: inline-block !important;
@@ -199,7 +230,12 @@ export class DramaRemovalModule extends BaseModule {
   suppressSidebarButton(root = document) {
     if (!root || !root.querySelectorAll) return;
 
-    const links = root.querySelectorAll('a, button, [role="button"], [role="link"]');
+    // Scope query to navigation/sidebar if scanning the whole document
+    const searchRoot = (root === document)
+      ? (document.querySelector('div[data-e2e="side-nav"], aside, nav, div[class*="SideNav"]') || document)
+      : root;
+
+    const links = searchRoot.querySelectorAll('a, button, [role="button"], [role="link"]');
     for (let i = 0; i < links.length; i++) {
       const el = links[i];
       const href = (el.getAttribute('href') || '').toLowerCase();
@@ -339,6 +375,31 @@ export class DramaRemovalModule extends BaseModule {
     const buttonElements = document.querySelectorAll(`.${DRAMA_BUTTON_HIDE_CLASS}`);
     for (let i = 0; i < buttonElements.length; i++) {
       buttonElements[i].classList.remove(DRAMA_BUTTON_HIDE_CLASS);
+    }
+
+    // Revert inline styles applied by compactSidebarNavigation
+    const spacers = document.querySelectorAll('div[class*="Spacer"], div[class*="Divider"], hr');
+    for (let i = 0; i < spacers.length; i++) {
+      const s = spacers[i];
+      if (s.closest && s.closest('div[data-e2e="side-nav"], nav, aside')) {
+        if (s.style) {
+          s.style.removeProperty('margin');
+          s.style.removeProperty('height');
+          s.style.removeProperty('min-height');
+          s.style.removeProperty('padding');
+        }
+      }
+    }
+
+    const navLists = document.querySelectorAll('ul');
+    for (let i = 0; i < navLists.length; i++) {
+      const ul = navLists[i];
+      if (ul.closest && ul.closest('div[data-e2e="side-nav"], nav, aside')) {
+        if (ul.style) {
+          ul.style.removeProperty('row-gap');
+          ul.style.removeProperty('margin-bottom');
+        }
+      }
     }
   }
 }

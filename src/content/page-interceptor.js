@@ -177,24 +177,72 @@ import {
     }
   } catch (err) {}
 
-  // --- 3. HELPER: SHARE TO FRIENDS POPUP DETECTION ---
+  // --- 3. SHARE POPUP STATE TRACKING ---
+  // Tracks whether a share dialog is currently open via click detection and DOM checks.
+  // Using a state flag avoids expensive full-page DOM scans on every intercepted fetch/XHR.
+  let sharePopupActive = false;
+  let sharePopupTimer = null;
+
+  function activateShareMode() {
+    sharePopupActive = true;
+    if (sharePopupTimer) clearTimeout(sharePopupTimer);
+    // Allow IM requests for 30 seconds after share interaction
+    sharePopupTimer = setTimeout(() => { sharePopupActive = false; }, 30000);
+  }
+
+  // Listen for clicks or hover on share-related buttons (capture phase for earliest detection)
+  if (typeof document !== 'undefined') {
+    document.addEventListener('click', (e) => {
+      if (!dmsBlocked) return;
+      const t = e.target;
+      if (!t || !t.closest) return;
+      try {
+        const shareBtn = t.closest(
+          'button[data-e2e*="share"], [data-e2e*="share-btn"], [data-e2e="video-share"],' +
+          ' [aria-label*="Share" i], [aria-label*="condividi" i], button[class*="Share"], div[data-e2e="share-icon"],' +
+          ' span[data-e2e*="share"], [data-e2e="arrow-right"], div[data-e2e="feed-action-item"]'
+        );
+        if (shareBtn) activateShareMode();
+      } catch (_) {}
+    }, true);
+
+    document.addEventListener('mouseover', (e) => {
+      if (!dmsBlocked) return;
+      const t = e.target;
+      if (!t || !t.closest) return;
+      try {
+        const shareBtn = t.closest(
+          'button[data-e2e*="share"], [data-e2e*="share-btn"], [data-e2e="video-share"],' +
+          ' [aria-label*="Share" i], [aria-label*="condividi" i], div[data-e2e="share-icon"],' +
+          ' span[data-e2e*="share"]'
+        );
+        if (shareBtn) activateShareMode();
+      } catch (_) {}
+    }, true);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && sharePopupActive) {
+        sharePopupActive = false;
+        if (sharePopupTimer) clearTimeout(sharePopupTimer);
+      }
+    }, true);
+  }
+
   function isSharePopupOpen() {
+    // Fast path: check cached state from click detection
+    if (sharePopupActive) return true;
+
     if (typeof document === 'undefined') return false;
     try {
-      const dialog = document.querySelector(
-        'div[data-e2e*="share-panel"], div[class*="ShareModal"], div[class*="DivShareWrapper"], div[class*="ShareContainer"], div[role="dialog"] [class*="Share"]'
+      // Targeted selector-only check (no expensive text scanning)
+      return !!document.querySelector(
+        'div[data-e2e*="share-panel"], div[data-e2e="send-to"], div[data-e2e*="share-modal"],' +
+        ' div[class*="ShareModal"], div[class*="DivShareWrapper"],' +
+        ' div[class*="ShareContainer"], div[class*="SendToPanel"],' +
+        ' div[role="dialog"][class*="Share"], div[class*="ShareBottomSheet"],' +
+        ' div[class*="ShareWrapper"], div[class*="ShareActionContainer"]'
       );
-      if (dialog) return true;
-
-      // Check headings or text for "Share to"
-      const elements = document.querySelectorAll('h2, h3, h4, div, span');
-      for (let i = 0; i < elements.length; i++) {
-        const t = (elements[i].textContent || '').trim().toLowerCase();
-        if (t === 'share to' && elements[i].children.length === 0) {
-          return true;
-        }
-      }
-    } catch (e) {}
+    } catch (_) {}
     return false;
   }
 

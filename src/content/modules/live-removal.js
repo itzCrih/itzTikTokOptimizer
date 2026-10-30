@@ -56,15 +56,59 @@ export class LiveRemovalModule extends BaseModule {
 
     // Use CSS :has() for instant, zero-delay suppression before layout paint
     const css = `
-      /* 1. Main Navigation LIVE link (Sidebar & Header) */
+      /* 1. Main Navigation LIVE link (Sidebar & Header) and all wrapper containers */
       a[href*="/live"],
       a[data-e2e="nav-live"],
+      a[data-e2e*="live"],
       div[data-e2e="live-side-nav"],
-      li:has(> a[href*="/live"]) {
+      div[data-e2e*="live-side"],
+      li:has(a[href*="/live"]),
+      li:has([data-e2e="nav-live"]),
+      div:has(> a[href*="/live"]),
+      div:has(> div > a[href*="/live"]),
+      div[role="listitem"]:has(a[href*="/live"]),
+      div[role="listitem"]:has([data-e2e="nav-live"]) {
         display: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        max-height: 0 !important;
+        line-height: 0 !important;
+        border: none !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+        overflow: hidden !important;
       }
 
-      /* 2. LIVE Cards in Feed via semantic :has() selectors */
+      /* 2. Normalize sidebar navigation layout and eliminate gap from removed LIVE button */
+      div[data-e2e="side-nav"],
+      aside[class*="SideNav"],
+      div[class*="SideNav"],
+      div[class*="MainNav"] {
+        justify-content: flex-start !important;
+      }
+
+      div[data-e2e="side-nav"] ul,
+      aside[class*="SideNav"] ul,
+      div[class*="SideNav"] ul {
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: flex-start !important;
+        row-gap: 4px !important;
+      }
+
+      div[data-e2e="side-nav"] li:empty,
+      div[data-e2e="side-nav"] div[role="listitem"]:empty,
+      aside[class*="SideNav"] li:empty {
+        display: none !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      /* 3. LIVE Cards in Feed via semantic :has() selectors */
       div[data-e2e="recommend-list-item-container"]:has(a[href*="/live"]),
       div[data-e2e="recommend-list-item-container"]:has([data-e2e="live-badge"]),
       div[data-e2e="recommend-list-item-container"]:has([data-e2e="live-card"]),
@@ -168,9 +212,18 @@ export class LiveRemovalModule extends BaseModule {
   }
 
   restoreSuppressedElements() {
+    if (typeof document === 'undefined') return;
     const elements = document.querySelectorAll(`.${LIVE_HIDE_CLASS}`);
     for (let i = 0; i < elements.length; i++) {
-      elements[i].classList.remove(LIVE_HIDE_CLASS);
+      const el = elements[i];
+      el.classList.remove(LIVE_HIDE_CLASS);
+      if (el.style) {
+        el.style.removeProperty('height');
+        el.style.removeProperty('min-height');
+        el.style.removeProperty('margin');
+        el.style.removeProperty('overflow');
+        el.style.removeProperty('display');
+      }
     }
   }
 }

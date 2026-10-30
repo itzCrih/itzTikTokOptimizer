@@ -172,7 +172,9 @@ export class NotificationsModule extends BaseModule {
     if (!root || !root.querySelectorAll) return;
 
     // Search for any elements matching notification toast text or structure
-    const candidates = root.querySelectorAll('div, [role="alert"], [class*="toast"], [class*="Toast"]');
+    const candidates = root.querySelectorAll(
+      '[role="alert"], div[class*="toast" i], div[class*="Toast"], div[class*="Notice"], div[class*="Notification"], div[data-e2e*="toast"], div[data-e2e*="notice"], div[style*="fixed"]'
+    );
     for (let i = 0; i < candidates.length; i++) {
       const el = candidates[i];
       const text = (el.textContent || '').toLowerCase();

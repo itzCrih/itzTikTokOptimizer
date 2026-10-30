@@ -65,19 +65,26 @@ export function isImUrl(url) {
  * Checks if a request URL or query specifically belongs to video/post sharing.
  * When the user opens the "Share to" popup to send a video to friends,
  * these requests must be allowed so friends appear in the popup.
+ * Uses path-segment and query-parameter matching instead of broad substring checks
+ * to prevent false positives (e.g. URLs with "share" in usernames or descriptions).
  */
 export function isShareUrl(url) {
   if (!url) return false;
   const u = String(url).toLowerCase();
   return (
-    u.includes('share') ||
     u.includes('/share/user_list') ||
+    u.includes('/share/list') ||
+    u.includes('/share/send') ||
+    u.includes('/share/recent') ||
     u.includes('scene=share') ||
     u.includes('type=share') ||
-    u.includes('share_type') ||
+    u.includes('share_type=') ||
     u.includes('action=share') ||
     u.includes('enter_from=share') ||
-    u.includes('msg_type=share')
+    u.includes('msg_type=share') ||
+    u.includes('share_to=') ||
+    u.includes('/im/share/') ||
+    u.includes('is_share=')
   );
 }
 

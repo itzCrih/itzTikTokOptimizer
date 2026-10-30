@@ -4,6 +4,7 @@ import { NotificationsModule } from '../src/content/modules/notifications.js';
 import { FeedModule } from '../src/content/modules/feed.js';
 import { DramaRemovalModule } from '../src/content/modules/drama-removal.js';
 import { LiveRemovalModule } from '../src/content/modules/live-removal.js';
+import { MediaModule } from '../src/content/modules/media.js';
 import { filterOutLiveFeedItems, isShareUrl, isBlockedTelemetryUrl } from '../src/shared/sanitizer.js';
 import { MockDocument, MockElement } from './setup.js';
 
@@ -125,4 +126,65 @@ test('7. CSP-violating CapCut PNS monitor and telemetry requests are intercepted
   assert.equal(isBlockedTelemetryUrl('https://www.tiktok.com/@user/video/12345'), false);
   assert.equal(isBlockedTelemetryUrl('https://www.tiktok.com/api/recommend/item_list/'), false);
 });
+
+test('8. LiveRemovalModule and DramaRemovalModule properly restore inline styles on disable', async () => {
+  const mockDoc = new MockDocument();
+  globalThis.document = mockDoc;
+
+  // Test LiveRemovalModule inline style cleanup
+  const liveMod = new LiveRemovalModule();
+  const liveEl = new MockElement('div', { 'data-e2e': 'feed-item' });
+  const liveBadge = new MockElement('div', { 'data-e2e': 'live-badge' });
+  liveEl.appendChild(liveBadge);
+  mockDoc.body.appendChild(liveEl);
+
+  liveMod.scanAndSuppressLiveElements(mockDoc);
+  assert.equal(liveEl.style.getPropertyValue('display'), 'none');
+
+  liveMod.restoreSuppressedElements();
+  assert.equal(liveEl.style.getPropertyValue('display'), '', 'Display must be restored');
+  assert.equal(liveEl.style.getPropertyValue('height'), '', 'Height must be restored');
+
+  // Test DramaRemovalModule spacer cleanup
+  const dramaMod = new DramaRemovalModule();
+  const sideNav = new MockElement('div', { 'data-e2e': 'side-nav' });
+  const spacer = new MockElement('div', { class: 'DivSpacer' });
+  sideNav.appendChild(spacer);
+  mockDoc.body.appendChild(sideNav);
+
+  dramaMod.compactSidebarNavigation(mockDoc);
+  assert.equal(spacer.style.getPropertyValue('height'), '1px');
+
+  dramaMod.restoreSuppressedElements();
+  assert.equal(spacer.style.getPropertyValue('height'), '', 'Spacer height must be restored');
+});
+
+test('9. LiveRemovalModule injects sidebar gap elimination styles', async () => {
+  const mockDoc = new MockDocument();
+  globalThis.document = mockDoc;
+
+  const liveMod = new LiveRemovalModule();
+  await liveMod.init({});
+  await liveMod.enable({});
+
+  const styleEl = mockDoc.getElementById(`itz-opt-style-${liveMod.styleId}`);
+  assert.ok(styleEl, 'Live stylesheet must be injected');
+  assert.ok(styleEl.textContent.includes('justify-content: flex-start !important'));
+  assert.ok(styleEl.textContent.includes('li:has(a[href*="/live"])'));
+  assert.ok(styleEl.textContent.includes('row-gap: 4px !important'));
+});
+
+test('10. MediaModule tracks dynamically discovered videos', () => {
+  const mediaMod = new MediaModule();
+  const fakeVideo = new MockElement('video');
+
+  assert.equal(mediaMod.trackedVideos.has(fakeVideo), false);
+  mediaMod.observeVideo(fakeVideo);
+  assert.equal(mediaMod.trackedVideos.has(fakeVideo), false, 'Not observed without mediaObserver');
+
+  mediaMod.mediaObserver = { observe: (v) => {} };
+  mediaMod.observeVideo(fakeVideo);
+  assert.equal(mediaMod.trackedVideos.has(fakeVideo), true, 'Observed and added to trackedVideos');
+});
+
 

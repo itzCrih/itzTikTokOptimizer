@@ -67,7 +67,8 @@ export class AnimationsModule extends BaseModule {
       div[class*="Spinner"],
       svg[class*="LoadingCircle"] {
         animation: initial !important;
-        display: initial !important;
+        visibility: visible !important;
+        opacity: 1 !important;
       }
     `;
 
